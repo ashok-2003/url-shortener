@@ -148,6 +148,8 @@ Don't settle these on your own. They are waiting on the owner.
 | `pnpm start`       | Plain `wrangler dev` on port 3005, serving the prebuilt `.open-next` (run an OpenNext build first). Shows every log level. The owner's demo server, so don't restart it without asking |
 | `pnpm build`       | Next.js production build                                                     |
 | `pnpm test`        | Vitest (`vitest.config.mts`)                                                 |
+| `pnpm test:e2e`    | Playwright journeys at phone size. Builds with OpenNext and serves on port 8787 with its own fresh state in `.wrangler/e2e-state` |
+| `pnpm bench`       | Speed report for create and redirect (p50/p95/p99) against a running server, by default `http://localhost:8787` |
 | `pnpm typecheck`   | `next typegen`, then `tsc --noEmit`                                          |
 | `pnpm lint`        | ESLint                                                                       |
 | `pnpm db:generate` | Generate a Drizzle migration into `drizzle/` from `src/server/db/schema.ts`  |
@@ -157,7 +159,7 @@ Don't settle these on your own. They are waiting on the owner.
 **Never run `pnpm deploy` or any `--remote` Wrangler command.** The project is local-first (spec §3).
 
 **Done means** `pnpm test`, `pnpm lint` and `pnpm typecheck` all pass. Report it with the output. If something failed
-or was skipped, say so.
+or was skipped, say so. CI (`.github/workflows/ci.yml`) runs all three, plus `pnpm test:e2e`, on every push.
 
 ## Version pins
 
