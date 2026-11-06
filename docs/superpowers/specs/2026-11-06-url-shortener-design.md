@@ -156,6 +156,8 @@ with `/`, `/api/...`, `/_next/...` or files in `public/`, and no reserved-word l
 3. On a miss: D1 `SELECT id, target_url, expires_at FROM links WHERE slug = ?`. Nothing found → branded 404.
    Found → fill KV in `waitUntil` (don't block the response). **Never cache "not found"**: a KV miss always falls
    through to D1, so a newly created link always works, whatever KV has seen.
+   If the D1 query **fails**, answer `503` with `Retry-After` and the "unavailable" page **(owner)**: we couldn't check
+   the link, so we don't claim it's missing. Links already in KV keep redirecting while D1 is down.
 4. Expired (`now >= expiresAt`, using the Worker's clock) → `410` with the "This link has expired" page. The check runs
    on every request, cached or not, so a cached entry can't outlive its link.
 5. Otherwise `302` with `Location: targetUrl` and `Cache-Control: private, no-store`, so neither browsers nor
