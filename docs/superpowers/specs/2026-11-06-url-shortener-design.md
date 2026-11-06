@@ -1,7 +1,7 @@
 # URL shortener: design
 
 - **Date:** 2026-11-06
-- **Status:** draft, waiting for the owner's approval
+- **Status:** approved by the owner on 2026-11-06
 - **Source brief:** the full-stack take-home (`takshome.md`). The brief is the starting point, not the ceiling: the owner
   set no time limit. It grades judgment and explainability over completeness, and the video walkthrough is the main
   deliverable, so everything here must be something the owner can explain line by line.
@@ -63,7 +63,7 @@ mode. Section 14 lists them as add-ons.
 | Tests           | Vitest **4.x** (not 5: `@cloudflare/vitest-pool-workers` 0.23 requires `vitest ^4.1`)       |
 | Code size       | Files under 500 lines                                                                        |
 
-**Deployment: waiting on the owner.** Default: local-first. Everything runs under `pnpm preview` with local D1, KV
+**Deployment (owner delegated the call, 2026-11-06): local-first.** Everything runs under `pnpm preview` with local D1, KV
 and Queues, and needs no Cloudflare account. `wrangler.jsonc` carries placeholder resource IDs, and provisioning is a
 separate README step. On the Workers Free plan:
 
