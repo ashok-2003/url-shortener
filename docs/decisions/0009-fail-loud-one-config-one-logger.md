@@ -36,6 +36,8 @@ The owner's rules:
    file calls `console.*`, and ESLint enforces that for `src/server/**` and `worker.ts`.
 4. **Unexpected errors are logged in full on the server and hidden from the client.** The tRPC route logs every error
    through `onError`, while the error formatter still sends the client only "Something went wrong on our side."
+   Expected client errors (HTTP status below 500) are logged at `warn` as `trpc.client_error` without a stack, and
+   server errors stay at `error` as `trpc.error`.
 
 ## Where we degrade instead of throwing, and stay loud
 
