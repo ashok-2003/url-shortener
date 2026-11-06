@@ -138,10 +138,10 @@ Paid.
 
 **Finish what's in flight**
 
-2. **Merge the owner's rate limiter.** The form's countdown is already wired to `retryAfterSeconds`.
-3. **Analytics at scale.** `analytics.overview` runs GROUP BYs over raw `click_events`. Roll them up into a daily
+1. **Merge the owner's rate limiter.** The form's countdown is already wired to `retryAfterSeconds`.
+2. **Analytics at scale.** `analytics.overview` runs GROUP BYs over raw `click_events`. Roll them up into a daily
    table once volume grows.
-4. **Measure the redirect on a real deploy,** using its `Server-Timing` header. Keep the Worker fast path only if it
+3. **Measure the redirect on a real deploy,** using its `Server-Timing` header. Keep the Worker fast path only if it
    beats the Next.js route.
 
 **Frontend**
