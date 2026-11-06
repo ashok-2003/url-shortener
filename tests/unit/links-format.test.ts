@@ -17,6 +17,7 @@ describe("formatDisplayUrl", () => {
   it("drops the scheme and a trailing slash", () => {
     expect(formatDisplayUrl("https://www.example.com/a/b?x=1")).toBe("www.example.com/a/b?x=1");
     expect(formatDisplayUrl("https://example.com/")).toBe("example.com");
+    expect(formatDisplayUrl("http://localhost:3005/abc1234")).toBe("localhost:3005/abc1234");
   });
 });
 

@@ -1,5 +1,6 @@
 export function formatDisplayUrl(url: string): string {
-  return url.replace(/^https:\/\//, "").replace(/\/$/, "");
+  // Short URLs are http:// on localhost, so strip either scheme for display.
+  return url.replace(/^https?:\/\//, "").replace(/\/$/, "");
 }
 
 export function formatShortDate(iso: string, now: Date, timeZone?: string): string {
