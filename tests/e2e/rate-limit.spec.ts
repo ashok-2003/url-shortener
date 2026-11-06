@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-// PENDING(E): the owner's limiter (spec §9)
-test.describe.skip("create rate limit", () => {
+test.describe("create rate limit", () => {
   test("blocks the sixth create and counts down", async ({ page }) => {
     await page.goto("/");
     const shorten = page.getByRole("button", { name: "Shorten" });

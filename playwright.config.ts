@@ -6,9 +6,12 @@ export default defineConfig({
   testDir: "tests/e2e",
   workers: 1,
   fullyParallel: false,
-  reporter: "list",
+  // On CI: a stray test.only fails the run, and failures show inline on GitHub.
+  forbidOnly: !!process.env.CI,
+  reporter: process.env.CI ? [["list"], ["github"]] : "list",
   use: {
     baseURL: BASE_URL,
+    trace: "retain-on-failure",
     // Phone-sized, touch-first (the phone is the primary target).
     browserName: "chromium",
     userAgent: devices["Pixel 7"].userAgent,

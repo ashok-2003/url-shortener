@@ -6,8 +6,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 const rows = (page: Page) => page.getByRole("link", { name: /, opens details$/ });
 
-// PENDING(B, C): the real UI and backend
-test.describe.skip("phone journeys", () => {
+test.describe("phone journeys", () => {
   test("create a link and copy it", async ({ page, context }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.goto("/");
