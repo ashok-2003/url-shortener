@@ -106,7 +106,7 @@ src/app/                pages and route handlers
 src/server/             server code; every file imports "server-only"
   db/                   Drizzle schema and client
   trpc/                 init, context, root router, error formatter
-  links/                create, list, stats, slugs, expiry, rate-limit seam
+  links/                create, list, stats, slugs, expiry, rate limiter (rate-limiter.ts, rate-limit.ts)
   redirect/             resolveRedirect(), shared by the route handler and worker.ts
   clicks/               queue producer, consumer, recordClicks(), user-agent parsing
 src/features/links/     shared Zod schemas and the link UI
