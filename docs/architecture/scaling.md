@@ -110,7 +110,7 @@ Every row below logs through `src/server/log.ts` (decision 0009). Nothing fails 
   click is enqueued, and the response doesn't wait for it") must prove it in `workerd`.
 - **Rate limiting:** Cloudflare's Rate Limiting binding is approximate and counts per location, so it can't enforce
   "exactly 5 per minute". Cloudflare's docs point to Durable Objects for strict limits, using one object per natural
-  boundary such as the user, never one global object. (Rate limiting is Ashok's design; spec §9.)
+  boundary such as the user, never one global object. (Rate limiting is Ashok's design; spec §9. What we built, and why it is D1 for now: `docs/decisions/0010-create-rate-limiter.md`.)
 
 ## How to measure before acting
 
