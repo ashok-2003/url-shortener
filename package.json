@@ -11,6 +11,8 @@
     "db:generate": "NODE_OPTIONS=--conditions=react-server drizzle-kit generate",
     "db:migrate": "wrangler d1 migrations apply url-shortner --local",
     "test": "vitest run",
+    "test:e2e": "playwright test",
+    "bench": "node scripts/bench/bench.mjs",
     "typecheck": "next typegen && tsc --noEmit",
     "lint": "eslint"
   },
