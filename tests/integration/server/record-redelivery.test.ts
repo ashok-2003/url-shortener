@@ -6,6 +6,7 @@ import { recordClicks, type ClickEvent } from "@/server/clicks/record";
 import type { ClickMessage } from "@/server/clicks/types";
 import { getDb } from "@/server/db/client";
 import { clickEvents, links } from "@/server/db/schema";
+import { fakeBatch } from "./fake-batch";
 
 const db = getDb(env.DB);
 
@@ -48,19 +49,6 @@ async function reload(id: number) {
 
 async function eventCount(linkId: number) {
   return (await db.select().from(clickEvents).where(eq(clickEvents.linkId, linkId))).length;
-}
-
-function fakeBatch(bodies: unknown[]) {
-  const messages = bodies.map((body, i) => ({
-    id: `m${i}`,
-    timestamp: new Date(),
-    attempts: 1,
-    body,
-    ack: vi.fn(),
-    retry: vi.fn(),
-  }));
-  const batch = { queue: "clicks", messages, ackAll: vi.fn(), retryAll: vi.fn() };
-  return { batch: batch as unknown as MessageBatch<unknown>, messages };
 }
 
 describe("recordClicks", () => {

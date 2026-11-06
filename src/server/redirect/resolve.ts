@@ -5,7 +5,7 @@ import { buildClickMessage } from "@/server/clicks/producer";
 import { toClickEvent } from "@/server/clicks/consumer";
 import { recordClicks } from "@/server/clicks/record";
 import type { ClickMessage } from "@/server/clicks/types";
-import { readEnv, REDIRECT } from "@/server/config";
+import { readEnv, REDIRECT, type AppEnv } from "@/server/config";
 import { getDb } from "@/server/db/client";
 import { log } from "@/server/log";
 import { fillCache, readCachedLink, type CachedLink } from "./cache";
@@ -37,18 +37,25 @@ export async function resolveRedirect(args: {
 
   if (!SLUG_PATTERN.test(slug)) return page("not-found", 404);
 
-  let link: CachedLink | null = await readCachedLink(env.LINKS_CACHE, slug);
-  const cacheHit = link !== null;
+  const appEnv = readEnv(env);
+  let link: CachedLink | null = await readCachedLink(appEnv.linksCache, slug);
+  const kvMs = Date.now() - started;
+  let d1Ms = 0;
   if (!link) {
+    const d1Started = Date.now();
     try {
-      const row = await env.DB.prepare("SELECT id, target_url, expires_at FROM links WHERE slug = ?")
+      const row = await appEnv.db.prepare("SELECT id, target_url, expires_at FROM links WHERE slug = ?")
         .bind(slug)
         .first<{ id: number; target_url: string; expires_at: number | null }>();
       if (!row) return page("not-found", 404);
       link = { id: row.id, targetUrl: row.target_url, expiresAt: row.expires_at };
-      waitUntil(fillCache(env.LINKS_CACHE, slug, link, started));
+      d1Ms = Date.now() - d1Started;
+      // An expired link is never cached: the 410 below must come from D1's truth.
+      if (link.expiresAt === null || started < link.expiresAt) {
+        waitUntil(fillCache(appEnv.linksCache, slug, link, started));
+      }
     } catch (error) {
-      log.error("redirect.d1_failed", { slug, error });
+      log.error("d1.read_failed", { slug, error });
       return page("unavailable", 503, { "retry-after": String(REDIRECT.retryAfterSeconds) });
     }
   }
@@ -56,7 +63,7 @@ export async function resolveRedirect(args: {
   if (link.expiresAt !== null && started >= link.expiresAt) return page("expired", 410);
 
   if (request.method === "GET") {
-    waitUntil(enqueueClick(env, buildClickMessage(request, cf, link.id, started)));
+    waitUntil(enqueueClick(appEnv, buildClickMessage(request, cf, link.id, started)));
   }
 
   return new Response(null, {
@@ -64,7 +71,7 @@ export async function resolveRedirect(args: {
     headers: {
       location: link.targetUrl,
       "cache-control": NO_STORE,
-      "server-timing": `${cacheHit ? "kv" : "d1"};desc="lookup", total;dur=${Date.now() - started}`,
+      "server-timing": `kv;dur=${kvMs}, d1;dur=${d1Ms}, total;dur=${Date.now() - started}`,
     },
   });
 }
@@ -74,9 +81,8 @@ export async function resolveRedirect(args: {
  * `next dev` runs no queue consumer, so there the click is stored directly (still after the response).
  * A missing binding is a loud ConfigError from readEnv, never a silent inline write.
  */
-async function enqueueClick(env: CloudflareEnv, message: ClickMessage): Promise<void> {
+async function enqueueClick(appEnv: AppEnv, message: ClickMessage): Promise<void> {
   try {
-    const appEnv = readEnv(env);
     if (process.env.NODE_ENV === "development") {
       await recordClicks(getDb(appEnv.db), [toClickEvent(message)]);
     } else {
