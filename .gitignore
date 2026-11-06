@@ -48,3 +48,8 @@ next-env.d.ts
 # local agent tooling state
 /.claude/
 /.claude-flow/
+
+# playwright
+/playwright-report/
+/test-results/
+/blob-report/
