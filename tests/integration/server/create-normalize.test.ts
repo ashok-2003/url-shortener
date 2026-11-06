@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { InputFieldError } from "@/server/trpc/errors";
 import { testDb } from "../../support/db";
-import { callerFor } from "../../support/trpc";
+import { callerFor, trpcHttp } from "../../support/trpc";
 import { links } from "@/server/db/schema";
 
 describe("links.create stores the normalized href", () => {
@@ -29,4 +29,15 @@ describe("links.create stores the normalized href", () => {
     });
     expect(await testDb().select().from(links)).toHaveLength(0);
   });
+
+  it.each(["https://SHO.RT./x", "https://sho.rt:443/x", "https://sho.rt/x"])(
+    "rejects %s as our own host with a url field error",
+    async (url) => {
+      const { status, body } = await trpcHttp("POST", "links.create", { url });
+      expect(status).toBe(400);
+      expect(body.error?.data.code).toBe("BAD_REQUEST");
+      expect(body.error?.data.fieldErrors?.url).toHaveLength(1);
+      expect(await testDb().select().from(links)).toHaveLength(0);
+    },
+  );
 });

@@ -10,6 +10,7 @@ import { InputFieldError } from "@/server/trpc/errors";
 import { log } from "@/server/log";
 import { MAX_URL_LENGTH } from "@/features/links/schema";
 import type { Context } from "@/server/trpc/context";
+import { assertNotOwnHost } from "./guards";
 import { isExpired, resolveExpiresAt } from "./expiry";
 import { generateSlug } from "./slug";
 import type { ExpiryInput } from "@/features/links/schema";
@@ -39,6 +40,7 @@ export async function createLink(
     const message = `Links can be at most ${MAX_URL_LENGTH} characters`;
     throw new TRPCError({ code: "BAD_REQUEST", message, cause: new InputFieldError("url", message) });
   }
+  assertNotOwnHost(targetUrl, ctx.baseUrl);
   const now = Date.now();
   const expiresAt = resolveExpiresAt(input.expiry, now);
   for (let attempt = 1; attempt <= LINKS.maxSlugAttempts; attempt++) {
