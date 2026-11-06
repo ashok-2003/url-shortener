@@ -7,16 +7,21 @@ This is a take-home for a full-stack role. It's built on the team's stack: Next.
 SQL. It's written to run on **Cloudflare Workers**, where nothing is kept in memory between requests, and that
 constraint drives most of the design.
 
-> **Status (2026-11-06): in progress.**
+> **Status (2026-11-06):**
 >
-> **Done:** the foundation (runtime config, D1 schema, tRPC contract, redirect seam) and the design system.
+> **Done:**
+> - the foundation (runtime config, D1 schema, tRPC contract, redirect seam);
+> - the full UI, as three tabs:
+>   - **Home:** create a link, plus your 5 most recent;
+>   - **My links:** every link, with paging and a detail sheet;
+>   - **Analytics:** totals, a 30-day chart, top links, referrers, countries and devices;
+> - a skippable `/sign-in` page and an account menu.
 >
-> **In progress:**
-> - the UI: create form, link list, detail sheet;
+> **In progress, on other branches:**
 > - the backend: real procedures, KV cache, click queue;
 > - the rate limiter.
 >
-> **Until the backend lands,** the tRPC procedures return deterministic **demo fixtures**. See
+> **Until those merge,** the tRPC procedures on `main` return deterministic **demo fixtures**. See
 > [Demo data](#demo-data-until-the-backend-lands).
 
 ## Quick start
@@ -31,11 +36,17 @@ pnpm dev               # Next.js dev server with local Cloudflare bindings → h
 
 If port 3000 is taken, use `pnpm dev -p 3005`.
 
-To run on the real Workers runtime (`workerd`) locally, the way production runs it:
+To run the **production build** on the real Workers runtime (`workerd`), the way it runs in production:
 
 ```bash
-pnpm preview           # builds with OpenNext and serves it with Wrangler → http://localhost:8787
+pnpm exec opennextjs-cloudflare build   # production bundle in .open-next/
+pnpm start                              # serves it with Wrangler → http://localhost:3005
 ```
+
+Or build and serve in one step with `pnpm preview` (→ http://localhost:8787).
+
+`next start` isn't used here. It runs a plain Node server without the Cloudflare bindings (D1, KV, Queues) that the
+app reads through OpenNext.
 
 ## Scripts
 
@@ -43,6 +54,7 @@ pnpm preview           # builds with OpenNext and serves it with Wrangler → ht
 | ----------------- | ---------------------------------------------------------------------------- |
 | `pnpm dev`        | Next.js dev server, with D1, KV and Queue bindings through OpenNext          |
 | `pnpm preview`    | OpenNext build, then `wrangler dev`: the actual Workers runtime              |
+| `pnpm start`      | Serves the existing OpenNext build on the Workers runtime at port 3005       |
 | `pnpm build`      | Next.js production build                                                     |
 | `pnpm test`       | Vitest unit tests                                                            |
 | `pnpm typecheck`  | Generates Next.js route types, then runs `tsc --noEmit`                      |
@@ -69,8 +81,11 @@ Browser ──GET /{slug}─────► redirect: KV → (miss) D1 → 302 �
   consumer writes them in batches, and each click carries an id, so a redelivered message is counted only once.
 - **Rate limit:** at most 5 links a minute per user. The 6th attempt gets `TOO_MANY_REQUESTS` with
   `retryAfterSeconds`, and the form counts down. It can't live in memory on Workers; the design is in progress.
-- **The page:** `/` is a Server Component. It prefetches your links by calling the tRPC router in-process (it never
-  fetches its own Worker over HTTP) and hands the data to client components through React Query hydration.
+- **The pages:** Home (`/`), My links (`/links`) and Analytics (`/analytics`) share one app shell.
+  - On desktop the shell is a sidebar; on phones it's a bottom tab bar.
+  - Each page is a Server Component that prefetches its data by calling the tRPC router in-process. It never fetches
+    its own Worker over HTTP, and it hands the data to client components through React Query hydration.
+  - The detail sheet (`?link=<slug>`) is mounted once in the shell, so a row on any tab opens it.
 
 The full design, with every decision and its reasoning:
 [`docs/superpowers/specs/2026-11-06-url-shortener-design.md`](docs/superpowers/specs/2026-11-06-url-shortener-design.md).
@@ -109,6 +124,7 @@ tests/unit/             Vitest
   [frontend](docs/superpowers/plans/2026-11-06-frontend.md).
 - [`DESIGN.md`](DESIGN.md): design tokens and components. [`PRODUCT.md`](PRODUCT.md): who it's for and what it
   promises.
+- [Navigation and analytics addendum](docs/superpowers/specs/2026-11-06-navigation-and-analytics.md): the three tabs and `analytics.overview`.
 - `AGENTS.md`: the rules for anyone, person or AI, working in this repo.
 
 ## Deploying (optional)
@@ -122,16 +138,44 @@ The project is local-first. To deploy, run the steps below, then `pnpm cf-typege
 Queues are on the Workers Free plan (10,000 operations a day, or about 3,000 clicks). Higher traffic needs Workers
 Paid.
 
-## Later
+## What I'd improve next
 
-These features come later:
+**Finish what's in flight**
 
-- malware and phishing checks on create;
-- `utm_source` stamping on redirect;
-- custom aliases;
-- editing and deleting links;
-- bot filtering;
-- D1 read replicas;
-- dark mode.
+1. **Merge the backend (workstream C)** and retire the demo fixtures. The fixture triggers (`ratelimit.test`,
+   `error.test`) disappear with them.
+2. **Merge the owner's rate limiter.** The form's countdown is already wired to `retryAfterSeconds`.
+3. **Real analytics.** Replace the `analytics.overview` stub with SQL over `click_events`. At scale, roll the events up
+   into a daily table. The stub's numbers are synthetic and don't add up across views.
+4. **Measure the redirect on a real deploy,** using its `Server-Timing` header. Keep the Worker fast path only if it
+   beats the Next.js route.
 
-See spec §14.
+**Frontend**
+
+- **End-to-end tests** with Playwright at phone and desktop sizes: create → list → details → open the short link →
+  the count goes up. Add visual regression tests for the three tabs and the sheet.
+- **Optimistic create.** Put the new link at the top of "Recent links" right away, instead of waiting for the refetch.
+- **Analytics controls:**
+  - a 7/30/90-day range;
+  - day boundaries in the viewer's time zone (today they're UTC days);
+  - comparing links.
+- **Accessibility:** an axe and screen-reader pass, plus unique chart ids when the sheet opens over Analytics.
+- **Expiry before hydration.** The countdown text ("Expires in 3 h") appears only after hydration; before that it
+  reads as a plain date. Rendering it on the server with the request time would remove the switch.
+- **A QR code** in the detail sheet; dark mode.
+
+**Product and platform**
+
+- **Real auth (Clerk).** It replaces `user_demo`, makes the sign-in page real, and gives Log out something to do.
+- **Link safety:**
+  - malware and phishing checks on create (Safe Browsing or Cloudflare URL Scanner);
+  - bot and link-preview filtering in analytics.
+- **More link features:**
+  - custom aliases;
+  - editing, disabling and deleting links (each needs a KV delete);
+  - `utm_source` stamping on redirect;
+  - custom domains; bulk create; a public API.
+- **Scale:** D1 read replicas for first clicks far from the primary; short negative caching for scanner traffic; a
+  retention policy for `click_events`.
+
+See spec §14 and `docs/superpowers/specs/2026-11-06-navigation-and-analytics.md`.
