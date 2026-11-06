@@ -19,8 +19,9 @@ constraint drives most of the design.
 >
 > - the real backend: D1 create, list and stats; the KV → D1 redirect; queued, idempotent click counting; SQL
 >   analytics.
+> - the rate limiter: at most 5 links a minute per user, as an exact sliding window in D1 (decision 0010).
 >
-> **In progress:** the rate limiter (owner) and integration tests on `workerd`.
+> **Not built yet:** the Worker fast path for redirects, and real sign-in.
 
 ## Quick start
 
@@ -77,8 +78,11 @@ Browser ──GET /{slug}─────► redirect: KV → (miss) D1 → 302 �
   - Unknown slug → `404`. Expired → `410`. Database unavailable → `503` with `Retry-After`.
 - **Clicks never slow down the redirect.** They're queued in `ctx.waitUntil` after the response is sent. The
   consumer writes them in batches, and each click carries an id, so a redelivered message is counted only once.
-- **Rate limit:** at most 5 links a minute per user. The 6th attempt gets `TOO_MANY_REQUESTS` with
-  `retryAfterSeconds`, and the form counts down. It can't live in memory on Workers; the design is in progress.
+- **Rate limit:** at most 5 successful creates a minute per user. The 6th attempt gets `TOO_MANY_REQUESTS` with
+  `retryAfterSeconds`, and the form counts down.
+  - Workers share no memory, so the window lives in D1. One atomic `INSERT … SELECT … WHERE count < 5` checks the
+    count and records the slot in the same step, so a burst can't get past 5.
+  - A create that fails gives its slot back.
 - **The pages:** Home (`/`), My links (`/links`) and Analytics (`/analytics`) share one app shell.
   - On desktop the shell is a sidebar; on phones it's a bottom tab bar.
   - Each page is a Server Component that prefetches its data by calling the tRPC router in-process. It never fetches
@@ -138,10 +142,9 @@ Paid.
 
 **Finish what's in flight**
 
-1. **Merge the owner's rate limiter.** The form's countdown is already wired to `retryAfterSeconds`.
-2. **Analytics at scale.** `analytics.overview` runs GROUP BYs over raw `click_events`. Roll them up into a daily
+1. **Analytics at scale.** `analytics.overview` runs GROUP BYs over raw `click_events`. Roll them up into a daily
    table once volume grows.
-3. **Measure the redirect on a real deploy,** using its `Server-Timing` header. Keep the Worker fast path only if it
+2. **Measure the redirect on a real deploy,** using its `Server-Timing` header. Keep the Worker fast path only if it
    beats the Next.js route.
 
 **Frontend**
