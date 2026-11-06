@@ -112,23 +112,29 @@ sequenceDiagram
   Note over R,DB: Under next dev there is no consumer: a dev-only fallback calls recordClicks() directly in waitUntil
 ```
 
-## 5. List and link details
+## 5. Three tabs and link details
+
+From the addendum `docs/superpowers/specs/2026-11-06-navigation-and-analytics.md`. Where this diagram and the addendum
+disagree, the addendum wins.
 
 ```mermaid
 sequenceDiagram
-  participant P as page.tsx (Server Component)
+  participant H as Home / (Server Component)
+  participant ML as My links /links
+  participant AN as Analytics /analytics
   participant RT as tRPC router
-  participant L as LinkList (client)
-  participant S as LinkDetailSheet (client)
+  participant S as LinkDetailSheet (on every tab)
   participant DB as D1
-  P->>RT: prefetch links.list in-process (no HTTP call to itself)
+  H->>RT: prefetch links.list with limit 5, in-process
+  RT->>DB: my 5 newest links
+  Note over H: create form on top, Recent links, then a View all links button to /links
+  ML->>RT: prefetch links.list (infinite), then Load more through /api/trpc
   RT->>DB: my links, newest first, cursor is the id
-  P-->>L: server-rendered HTML plus HydrationBoundary
-  L->>RT: Load more (next cursor) through /api/trpc
-  L->>S: tap a row: URL gets ?link=slug
+  AN->>RT: prefetch analytics.overview (no input, last 30 UTC days)
+  RT->>DB: totals, daily clicks, top 5 links, referrers, countries, devices for my links
+  H->>S: tap a row on any tab: URL gets ?link=slug
   S->>RT: links.stats(slug)
-  RT->>DB: totals (all, 24 h, 7 d), 30 daily counts, top 5 referrers, top 5 countries, devices
-  Note over RT: Someone else's slug returns NOT_FOUND, so ownership is never revealed
+  Note over RT: after a create, invalidate links.list so Home and My links both refresh. Someone else's slug returns NOT_FOUND
 ```
 
 ## 6. Data model
