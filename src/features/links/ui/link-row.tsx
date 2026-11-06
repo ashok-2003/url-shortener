@@ -10,6 +10,21 @@ import { ExpiryBadge } from "./expiry-badge";
 export const LINK_GRID =
   "md:grid-cols-[6.5rem_minmax(0,1fr)_4.5rem_6.5rem_9.5rem] md:gap-x-4";
 
+export function LinkColumnHeader() {
+  return (
+    <div
+      aria-hidden
+      className={`hidden border-b border-hairline px-2 pb-2 text-xs text-ink-muted md:grid ${LINK_GRID}`}
+    >
+      <span>Slug</span>
+      <span>Target</span>
+      <span className="text-right">Clicks</span>
+      <span>Created</span>
+      <span>Expires</span>
+    </div>
+  );
+}
+
 export function LinkRow({ link }: { link: LinkSummary }) {
   const noun = link.clicks === 1 ? "click" : "clicks";
   return (

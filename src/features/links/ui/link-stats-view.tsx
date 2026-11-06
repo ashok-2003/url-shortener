@@ -56,7 +56,13 @@ export function LinkStatsView({ stats }: { stats: LinkStats }) {
         </dd>
       </dl>
 
-      <KpiStrip totals={totals} />
+      <KpiStrip
+        items={[
+          { label: "All clicks", value: totals.all },
+          { label: "Last 24 h", value: totals.last24h },
+          { label: "Last 7 days", value: totals.last7d },
+        ]}
+      />
 
       {totals.all === 0 ? (
         <p className="text-ink-muted">
