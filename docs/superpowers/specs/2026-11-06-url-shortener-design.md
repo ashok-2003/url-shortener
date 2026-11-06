@@ -157,7 +157,8 @@ with `/`, `/api/...`, `/_next/...` or files in `public/`, and no reserved-word l
    Found → fill KV in `waitUntil` (don't block the response). **Never cache "not found"**: a KV miss always falls
    through to D1, so a newly created link always works, whatever KV has seen.
    If the D1 query **fails**, answer `503` with `Retry-After` and the "unavailable" page **(owner)**: we couldn't check
-   the link, so we don't claim it's missing. Links already in KV keep redirecting while D1 is down.
+   the link, so we don't claim it's missing. Links already in KV keep redirecting while D1 is down. `Retry-After` is
+   5 seconds **(call)**; see decision 0008.
 4. Expired (`now >= expiresAt`, using the Worker's clock) → `410` with the "This link has expired" page. The check runs
    on every request, cached or not, so a cached entry can't outlive its link.
 5. Otherwise `302` with `Location: targetUrl` and `Cache-Control: private, no-store`, so neither browsers nor
@@ -284,6 +285,15 @@ Input: `{ slug: string }`. Output **(call: the "performance" view)**:
 
 `totals.all` comes from `links.clicks`. Everything else comes from `click_events`. Both are written in the same
 transaction, so they agree.
+
+Stats rules **(call, agreed by backend and tests; the owner delegated the decision on 2026-11-06)**:
+
+- `last24h` and `last7d` are rolling windows: `clicked_at >= now - 24 h` and `clicked_at >= now - 7 × 24 h`. They
+  are not calendar days.
+- `referrers`, `countries` and `devices` count all-time clicks, like `totals.all`.
+- Lists are ordered by clicks, highest first. Among equal counts, `null` (direct or unknown) comes last, then the rest
+  in ascending order. A `null` with the most clicks stays at the top.
+- `daily` covers the 30 UTC days ending today, oldest first.
 
 ### Error shape
 
