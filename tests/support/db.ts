@@ -29,11 +29,20 @@ export function testDb(): Db {
   return getDb(env.DB);
 }
 
-/** Deletes every link, every click and every KV key. */
+/**
+ * Deletes every row from every app table, and every KV key. Tables are found
+ * at run time, so a table added later (the owner's rate limiter, say) is
+ * cleared too. Migration bookkeeping and SQLite's own tables are kept.
+ */
 export async function clearStorage(): Promise<void> {
+  const { results } = await env.DB.prepare(
+    `SELECT name FROM sqlite_master WHERE type = 'table'
+       AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'd1_%' AND name NOT LIKE '_cf_%'`,
+  ).all<{ name: string }>();
+  // Foreign keys are checked at commit, so the delete order doesn't matter.
   await env.DB.batch([
-    env.DB.prepare("DELETE FROM click_events"),
-    env.DB.prepare("DELETE FROM links"),
+    env.DB.prepare("PRAGMA defer_foreign_keys = on"),
+    ...results.map((t) => env.DB.prepare(`DELETE FROM "${t.name}"`)),
   ]);
   let cursor: string | undefined;
   do {
