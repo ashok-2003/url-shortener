@@ -1,6 +1,7 @@
 "use client";
 
 import { useSuspenseQuery } from "@tanstack/react-query";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { RECENT_LIMIT } from "@/features/links/list-query";
@@ -35,9 +36,12 @@ export function RecentLinks() {
               <LinkRow key={link.slug} link={link} />
             ))}
           </ol>
-          <div className="flex justify-center pt-2 md:justify-start">
-            <Button asChild variant="secondary">
-              <Link href="/links">View all links</Link>
+          <div className="flex justify-end pt-2">
+            <Button asChild variant="ink">
+              <Link href="/links">
+                View all links
+                <ArrowRight aria-hidden />
+              </Link>
             </Button>
           </div>
         </>

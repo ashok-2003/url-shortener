@@ -12,6 +12,8 @@ const buttonVariants = cva(
         secondary: "border-input bg-background text-foreground hover:bg-surface",
         outline: "border-input bg-background text-foreground hover:bg-surface",
         ghost: "text-primary hover:bg-accent hover:text-accent-foreground",
+        // Owner decision (2026-11-06): a filled black button for secondary navigation actions.
+        ink: "bg-ink text-canvas hover:bg-ink/85",
         destructive: "bg-status-red-bg text-status-red-ink",
         link: "text-primary underline-offset-4 hover:underline",
       },

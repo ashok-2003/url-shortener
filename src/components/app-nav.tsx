@@ -3,6 +3,7 @@
 import { ChartColumn, House, Link2, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { UserMenu } from "@/components/user-menu";
 import { brand } from "@/config/brand";
 
 type NavItem = { href: "/" | "/links" | "/analytics"; label: string; icon: LucideIcon };
@@ -27,9 +28,9 @@ export function AppNav() {
   return (
     <>
       {/* Phone: brand bar */}
-      <div className="flex h-14 items-center justify-between border-b border-hairline px-4 md:hidden">
+      <div className="flex h-14 items-center justify-between border-b border-hairline pr-2 pl-4 md:hidden">
         <span className="font-display text-xl font-medium tracking-[-0.01em]">{brand.name}</span>
-        <span className="font-mono text-xs tabular-nums text-ink-muted">user_demo</span>
+        <UserMenu variant="compact" />
       </div>
 
       {/* Desktop: sidebar */}
@@ -61,7 +62,9 @@ export function AppNav() {
             })}
           </ul>
         </nav>
-        <p className="mt-auto px-3 font-mono text-xs tabular-nums text-ink-muted">user_demo</p>
+        <div className="mt-auto">
+          <UserMenu variant="sidebar" />
+        </div>
       </aside>
 
       {/* Phone: bottom tab bar */}

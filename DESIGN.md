@@ -62,7 +62,7 @@ first-class; honest empty, loading and error states.
 
 Rules:
 
-- **One Action Colour.** Blue is the only interactive colour and nothing interactive is another colour.
+- **One Action Colour.** Blue is the primary interactive colour. Exception (owner, 2026-11-06): the `ink` button (black fill, canvas text) for secondary navigation such as "View all links".
 - **No green, anywhere.** Success is said in words ("Link created") and shown by the result itself.
 - **Status is dot plus word**, never colour alone. Tinted surfaces carry their own dark ink, never muted grey.
 - Chart and proportion bars are action blue on a surface track; there is only one series.
