@@ -28,18 +28,28 @@ lives in `src/server/links/rate-limiter.ts`; the middleware that uses it is `rat
 
 ## Why not the alternatives
 
+- **A fixed-window counter** (one count per minute bucket): it allows about 10 creates within a second across a bucket
+  boundary. The sliding window has no boundary to exploit.
 - **An in-memory counter:** Workers share nothing. Each isolate would have its own count, so the limit would be wrong.
-- **Cloudflare's Rate Limiting binding:** it is approximate and counts per location. It cannot promise "exactly 5".
+- **Cloudflare's Rate Limiting binding:** it can't give a slot back, so "only successful creates count" is impossible
+  with it, and its period is only 10 or 60 seconds. It is also approximate and counts per location.
 - **A Durable Object:** strict and fast, but it needs extra wiring under `next dev`. It is the swap behind the
   `RateLimiter` interface if load grows.
-- **Counting rows in `links`:** it would bypass the spec §9 seam, and it would tie the limiter to the links table.
-  It would also count the wrong thing if links are ever deleted.
+- **Counting rows in `links`:** a naive count-then-insert lets a burst through, because the count and the insert are
+  separate steps. Making it atomic means folding the count into the create's own INSERT, which goes past the spec §9
+  seam and tangles with slug retries.
 
 ## Consequences
 
 - Exact, atomic, no new infrastructure, and it works the same under `next dev` and in workerd.
 - The cost is one D1 write per create attempt, plus one more when a failed create releases its slot.
-- Pruning happens inside `acquire`, so the table stays small without a cleanup job.
+- A slot is held while the create runs. A create that later fails can briefly limit a concurrent request. That is the
+  price of never going over 5.
+- "Exact" is measured on the Worker's request timestamps. `retryAfterSeconds` is clamped to 1..60, because requests
+  that reach D1 out of order can leave rows stamped slightly after the caller's `now`.
+- The oldest-slot read is in the same batch (same transaction) as the insert, so a limited caller always gets a real wait.
+- Pruning is inside `acquire` and removes rows older than twice the window, so a later-stamped request never deletes a
+  row an earlier-stamped one still counts. No cleanup job is needed.
 
 ## Revisit when
 
