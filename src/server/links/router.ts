@@ -6,7 +6,7 @@ import {
 } from "@/features/links/schema";
 import { publicProcedure, router } from "@/server/trpc/init";
 import { assertNotOwnHost } from "./guards";
-import { createFixtureLink, fixtureList, fixtureStats } from "./fixtures";
+import { createLink, linkStats, listLinks } from "./service";
 import { rateLimitCreate } from "./rate-limit";
 
 export const linksRouter = router({
@@ -17,15 +17,13 @@ export const linksRouter = router({
       return next();
     })
     .use(rateLimitCreate)
-    .mutation(({ ctx, input }) => createFixtureLink(ctx, input, new Date())),
+    .mutation(({ ctx, input }) => createLink(ctx, input)),
 
   list: publicProcedure
     .input(listLinksInput)
-    .query(({ ctx, input }) => fixtureList(ctx.baseUrl, input, new Date())),
+    .query(({ ctx, input }) => listLinks(ctx, input)),
 
   stats: publicProcedure
     .input(linkStatsInput)
-    .query(({ ctx, input }) =>
-      fixtureStats(ctx.baseUrl, input.slug, new Date()),
-    ),
+    .query(({ ctx, input }) => linkStats(ctx, input.slug)),
 });

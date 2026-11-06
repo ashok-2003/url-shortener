@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { renderStatusPage } from "@/features/status-pages/render";
 import { resolveRedirect } from "@/server/redirect/resolve";
 
-describe("resolveRedirect (stub)", () => {
+describe("resolveRedirect", () => {
   it("returns the not-found page, uncached", async () => {
     const res = await resolveRedirect({
-      request: new Request("https://sho.rt/abc1234"),
+      request: new Request("https://sho.rt/not-a-slug"), // fails the slug pattern: answered before any storage
       env: {} as CloudflareEnv,
       waitUntil: () => {},
       cf: null,
