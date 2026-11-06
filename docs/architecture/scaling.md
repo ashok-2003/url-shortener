@@ -44,6 +44,16 @@ cold-link reads and dashboard reads compete, because **a D1 database runs one qu
   4. **Split across several D1 databases** (by owner, for example). An account can have up to 1,000,000. This is the
      last resort, because every query then has to know which database to ask.
 
+### 1b. `analytics.overview` aggregates on every request
+
+- **Why:** it scans every one of the owner's `click_events` rows in the last 30 days, plus their links, on each page
+  load. That's the second D1 hot spot after click writes, and it competes for the same single thread.
+- **What it looks like:** the Analytics tab slows down as one owner's clicks grow, and so does everything else
+  waiting on D1 while it runs.
+- **Next step:** a `daily_link_stats` roll-up table, filled by a Cron Trigger (`docs/architecture/extending.md`). The
+  overview then reads 30 rows per link instead of every click. A short per-owner cache in KV (60 s) is a cheaper
+  step in between, because the UI already says counts lag by a few seconds.
+
 ### 2. One queue takes at most 5,000 messages per second
 
 - **What it looks like:** above that, `CLICKS.send()` throws "Too Many Requests". The redirect is unaffected, because

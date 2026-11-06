@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-export const SLUG_PATTERN = /^[A-Za-z0-9]{7}$/;
+export const SLUG_LENGTH = 7;
+export const SLUG_PATTERN = new RegExp(`^[A-Za-z0-9]{${SLUG_LENGTH}}$`);
 export const MAX_URL_LENGTH = 2048;
 
 export const EXPIRY_PRESETS = ["1h", "24h", "7d", "30d"] as const;

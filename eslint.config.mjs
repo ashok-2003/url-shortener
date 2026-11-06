@@ -17,6 +17,11 @@ const eslintConfig = defineConfig([
     "cloudflare-env.d.ts",
     ".claude/**",
   ]),
+  {
+    files: ["src/server/**", "worker.ts"],
+    ignores: ["src/server/log.ts"],
+    rules: { "no-console": "error" },
+  },
 ]);
 
 export default eslintConfig;
