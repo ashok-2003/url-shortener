@@ -20,9 +20,38 @@ describe("resolveRedirect (stub)", () => {
 });
 
 describe("renderStatusPage", () => {
-  it("renders the expired page", () => {
-    const html = renderStatusPage("expired", { homeUrl: "https://sho.rt/" });
-    expect(html).toContain("This link has expired");
+  const opts = { homeUrl: "https://sho.rt/" };
+
+  it("renders the not-found page", () => {
+    const html = renderStatusPage("not-found", opts);
     expect(html).toContain("<!doctype html>");
+    expect(html).toContain("This link doesn't exist");
+    expect(html).toContain("Go to Snip");
+  });
+
+  it("renders the expired page", () => {
+    const html = renderStatusPage("expired", opts);
+    expect(html).toContain("This link has expired");
+    expect(html).toContain("Whoever shared it set it to stop working.");
+    expect(html).toContain("Make your own short link");
+  });
+
+  it("renders the unavailable page with a retry link", () => {
+    const html = renderStatusPage("unavailable", {
+      ...opts,
+      retryUrl: "https://sho.rt/abc1234",
+    });
+    expect(html).toContain("We couldn't open this link right now");
+    expect(html).toContain('<a class="primary" href="https://sho.rt/abc1234">Try again</a>');
+    expect(html).toContain('<a class="secondary" href="https://sho.rt/">Go to Snip</a>');
+  });
+
+  it("escapes homeUrl and retryUrl", () => {
+    const evil = 'https://x.test/"><script>alert(1)</script>';
+    for (const kind of ["not-found", "expired", "unavailable"] as const) {
+      const html = renderStatusPage(kind, { homeUrl: evil, retryUrl: evil });
+      expect(html).not.toContain("<script>");
+      expect(html).toContain("&quot;&gt;&lt;script&gt;");
+    }
   });
 });
