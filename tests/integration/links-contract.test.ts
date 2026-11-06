@@ -39,8 +39,7 @@ describe("links input validation", () => {
   });
 });
 
-// PENDING(C): real create/list/stats replace the stub fixtures
-describe.skip("links contract", () => {
+describe("links contract", () => {
   describe("create", () => {
     it("returns a LinkSummary", async () => {
       const link = await callerFor().links.create({

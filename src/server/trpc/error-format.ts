@@ -4,7 +4,7 @@ import type { TRPCError } from "@trpc/server";
 import { ZodError, z } from "zod";
 import { InputFieldError, RateLimitedError } from "./errors";
 
-const INTERNAL_MESSAGE = "Something went wrong on our side.";
+export const INTERNAL_MESSAGE = "Something went wrong on our side.";
 
 function fieldErrorsOf(error: TRPCError): Record<string, string[]> | null {
   const cause = error.cause;
