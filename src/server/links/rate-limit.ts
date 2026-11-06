@@ -22,6 +22,8 @@ export const rateLimitCreate = middleware(async ({ ctx, next }) => {
     });
     throw new TRPCError({
       code: "TOO_MANY_REQUESTS",
+      // The spec's wording says "minute", so it is only right while windowMs is 60_000
+      // (a test pins that). Change the window and this sentence must change too.
       message: `You've made ${RATE_LIMIT.createsPerWindow} links in the last minute.`,
       cause: new RateLimitedError(acquired.retryAfterSeconds),
     });

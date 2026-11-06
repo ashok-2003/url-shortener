@@ -25,10 +25,13 @@ export function d1RateLimiter(db: D1Database, rule = RATE_LIMIT): RateLimiter {
 
       // One batch = one D1 transaction. D1 runs one query at a time, so the count check and the
       // insert cannot interleave with another request: a burst can never take more than the limit.
-      const [, insert] = await db.batch([
+      // Pruning keeps 2x the window, so a request stamped slightly later never deletes a row that an
+      // earlier-stamped request still counts. The third statement reads the oldest slot in the same
+      // transaction, so it is never empty when the caller is limited.
+      const [, insert, oldest] = await db.batch([
         db
           .prepare("DELETE FROM rate_limit_events WHERE owner_id = ? AND created_at <= ?")
-          .bind(ownerId, windowStart),
+          .bind(ownerId, now - 2 * rule.windowMs),
         db
           .prepare(
             `INSERT INTO rate_limit_events (id, owner_id, created_at)
@@ -37,18 +40,20 @@ export function d1RateLimiter(db: D1Database, rule = RATE_LIMIT): RateLimiter {
              RETURNING id`,
           )
           .bind(slotId, ownerId, now, ownerId, windowStart, rule.createsPerWindow),
+        db
+          .prepare("SELECT min(created_at) AS oldest FROM rate_limit_events WHERE owner_id = ? AND created_at > ?")
+          .bind(ownerId, windowStart),
       ]);
 
       if (insert.results.length > 0) return { ok: true, slotId };
 
-      // Limited: the oldest slot in the window is the first to expire.
-      const oldest = await db
-        .prepare("SELECT min(created_at) AS oldest FROM rate_limit_events WHERE owner_id = ? AND created_at > ?")
-        .bind(ownerId, windowStart)
-        .first<{ oldest: number | null }>();
-      // `oldest` is null only if every row expired between the two statements; wait the minimum.
-      const expiresAt = (oldest?.oldest ?? now) + rule.windowMs;
-      return { ok: false, retryAfterSeconds: Math.max(1, Math.ceil((expiresAt - now) / 1000)) };
+      // Limited: the oldest slot in the window is the first to expire. Rows stamped after `now`
+      // (out-of-order requests, clock skew) can make that later than a full window, so clamp.
+      const oldestAt = (oldest.results[0] as { oldest: number | null } | undefined)?.oldest;
+      if (oldestAt === null || oldestAt === undefined) return { ok: false, retryAfterSeconds: 1 };
+      const maxWait = Math.ceil(rule.windowMs / 1000);
+      const wait = Math.ceil((oldestAt + rule.windowMs - now) / 1000);
+      return { ok: false, retryAfterSeconds: Math.min(maxWait, Math.max(1, wait)) };
     },
 
     async release(slotId) {

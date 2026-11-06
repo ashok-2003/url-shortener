@@ -1,10 +1,10 @@
 import { env } from "cloudflare:test";
 import { TRPCError } from "@trpc/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { RATE_LIMIT } from "@/server/config";
 import { rateLimitCreate } from "@/server/links/rate-limit";
 import { d1RateLimiter } from "@/server/links/rate-limiter";
-import { createContext } from "@/server/trpc/context";
+import { createContext, DEMO_USER_ID } from "@/server/trpc/context";
 import { createCallerFactory, publicProcedure, router } from "@/server/trpc/init";
 import { testDb } from "../../support/db";
 
@@ -63,11 +63,32 @@ describe("d1RateLimiter", () => {
     expect(results.filter((r) => r.ok)).toHaveLength(LIMIT);
   });
 
+  it("clamps the wait to the window when rows are stamped after now", async () => {
+    await takeAll("a", T0 + 1);
+    expect(await limiter().acquire("a", T0)).toEqual({ ok: false, retryAfterSeconds: 60 });
+  });
+
+  it("allows exactly one window after the oldest slot", async () => {
+    await takeAll("a", T0);
+    expect((await limiter().acquire("a", T0 + WINDOW)).ok).toBe(true);
+  });
+
+  it("limits one ms before the window ends, with a wait of 1 second", async () => {
+    await takeAll("a", T0);
+    expect(await limiter().acquire("a", T0 + WINDOW - 1)).toEqual({ ok: false, retryAfterSeconds: 1 });
+  });
+
+  it("keeps the spec wording tied to a 60 second window", () => {
+    expect(RATE_LIMIT.windowMs).toBe(60_000);
+  });
+
   it("prunes rows older than the window", async () => {
     await takeAll("a", T0);
     await takeAll("b", T0);
     expect((await limiter().acquire("a", T0 + WINDOW + 1)).ok).toBe(true);
-    expect(await rowCount("a")).toBe(1); // only the new slot is left
+    expect(await rowCount("a")).toBe(LIMIT + 1); // expired but within 2x window: kept, not counted
+    expect((await limiter().acquire("a", T0 + 2 * WINDOW + 1)).ok).toBe(true);
+    expect(await rowCount("a")).toBe(2); // the T0 rows are older than 2x window and pruned; the T0+WINDOW+1 row and the new one stay
     expect(await rowCount("b")).toBe(LIMIT); // pruning is per owner
   });
 });
@@ -87,6 +108,35 @@ describe("rateLimitCreate middleware", () => {
       // Never TOO_MANY_REQUESTS: each failed create gives its slot back.
       await expect(caller.create()).rejects.toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
     }
-    expect(await rowCount("user_demo")).toBe(0);
+    expect(await rowCount(DEMO_USER_ID)).toBe(0);
+  });
+
+  it("still returns the create's own error when releasing the slot fails", async () => {
+    const realDb = env.DB;
+    const flaky = new Proxy(realDb, {
+      get(target, prop) {
+        if (prop === "prepare") {
+          return (sql: string) => {
+            if (sql.startsWith("DELETE FROM rate_limit_events WHERE id")) {
+              throw new Error("release boom");
+            }
+            return target.prepare(sql);
+          };
+        }
+        const v = Reflect.get(target, prop) as unknown;
+        return typeof v === "function" ? (v as (...a: unknown[]) => unknown).bind(target) : v;
+      },
+    });
+    const flakyCaller = createCallerFactory(failing)(
+      createContext({ db: testDb(), env: { ...env, DB: flaky } as typeof env, baseUrl: "https://sho.rt" }),
+    );
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await expect(flakyCaller.create()).rejects.toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
+      const lines = spy.mock.calls.map((c) => JSON.parse(String(c[0])) as { event: string });
+      expect(lines.some((l) => l.event === "ratelimit.release_failed")).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
