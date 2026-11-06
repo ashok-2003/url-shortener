@@ -15,6 +15,12 @@ export const LINKS = {
   statsTopN: 5,
 } as const;
 
+/** Create rate limit (decision 0010): at most `createsPerWindow` successful creates per owner in any `windowMs`. */
+export const RATE_LIMIT = {
+  createsPerWindow: 5,
+  windowMs: 60_000,
+} as const;
+
 export class ConfigError extends Error {
   constructor(message: string) {
     super(message);

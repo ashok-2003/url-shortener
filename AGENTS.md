@@ -106,7 +106,7 @@ src/app/                pages and route handlers
 src/server/             server code; every file imports "server-only"
   db/                   Drizzle schema and client
   trpc/                 init, context, root router, error formatter
-  links/                create, list, stats, slugs, expiry, rate-limit seam
+  links/                create, list, stats, slugs, expiry, rate limiter (rate-limiter.ts, rate-limit.ts)
   redirect/             resolveRedirect(), shared by the route handler and worker.ts
   clicks/               queue producer, consumer, recordClicks(), user-agent parsing
 src/features/links/     shared Zod schemas and the link UI
@@ -122,8 +122,9 @@ The full tree is spec §11.
 
 ## Who owns what
 
-- **`src/server/links/rate-limit.ts` belongs to the owner.** Don't implement, refactor or "fix" it. It passes
-  everything through until the owner builds it. Spec §9 fixes only its seam and required behaviour.
+- **The create rate limiter is built (decision 0010).** It lives in `src/server/links/rate-limiter.ts` (the D1
+  sliding window) and `src/server/links/rate-limit.ts` (the tRPC middleware). Its numbers are `RATE_LIMIT` in
+  `src/server/config.ts`.
 - **The tRPC contract (spec §8) changes only with the owner's approval.** It is the one thing parallel workstreams
   share.
 - Once workstream A (foundation) has merged, workstreams B to E (spec §13) don't edit each other's files.
@@ -132,7 +133,6 @@ The full tree is spec §11.
 
 Don't settle these on your own. They are waiting on the owner.
 
-- How the rate limiter stores its counts (the owner's call).
 - Whether the `worker.ts` fast path stays. A latency measurement decides it (spec §4).
 - When to move per-click events out of D1. `docs/architecture/scaling.md` has the signals to watch and the next step.
 

@@ -11,8 +11,7 @@ async function createValid(n: number) {
   return results;
 }
 
-// PENDING(E): the owner's limiter (spec §9)
-describe.skip("create rate limit", () => {
+describe("create rate limit", () => {
   afterEach(() => {
     vi.useRealTimers();
   });

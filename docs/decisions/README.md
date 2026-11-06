@@ -20,7 +20,7 @@ replaces it instead of editing the old one, and change the old one's status to "
 | [0007](0007-one-worker.md)                | One Worker serves everything; the redirect fast path must be measured | Proposed |
 | [0008](0008-503-when-d1-fails.md)         | A redirect answers `503` when D1 fails, never `404`              | Accepted |
 | [0009](0009-fail-loud-one-config-one-logger.md) | Fail loud, one config module, one logger                   | Accepted |
-| —                                         | Rate limiting                                                    | Ashok writes this one (spec §9) |
+| [0010](0010-create-rate-limiter.md)       | The create rate limiter is an exact sliding window in D1         | Accepted |
 
 "Accepted" means accepted in the spec (approved by the owner on 2026-11-06), or approved by the owner directly.
 

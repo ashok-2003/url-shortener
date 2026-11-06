@@ -39,5 +39,16 @@ export const clickEvents = sqliteTable(
   ],
 );
 
+/** One row per create attempt that holds a rate-limit slot (decision 0010). `id` is the slot. */
+export const rateLimitEvents = sqliteTable(
+  "rate_limit_events",
+  {
+    id: text("id").primaryKey(),
+    ownerId: text("owner_id").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [index("rate_limit_events_owner_created_idx").on(t.ownerId, t.createdAt)],
+);
+
 export type LinkRow = typeof links.$inferSelect;
 export type ClickEventRow = typeof clickEvents.$inferSelect;
