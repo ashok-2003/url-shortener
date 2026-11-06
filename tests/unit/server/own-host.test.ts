@@ -30,7 +30,12 @@ describe("assertNotOwnHost", () => {
     "https://sho.rt.evil.com/x",
     "https://notsho.rt/x",
     "https://example.com/",
+    "https://sho.rt:8443/x",
   ])("allows foreign host %s", (url) => {
     expect(() => assertNotOwnHost(url, BASE)).not.toThrow();
+  });
+
+  it("allows same hostname on a different port (localhost)", () => {
+    expect(() => assertNotOwnHost("https://localhost/x", "http://localhost:3000")).not.toThrow();
   });
 });
