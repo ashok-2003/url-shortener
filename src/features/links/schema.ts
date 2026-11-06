@@ -64,6 +64,8 @@ export const createLinkInput = z.object({
 export const listLinksInput = z.object({
   cursor: z.number().int().positive().nullish(),
   limit: z.number().int().min(1).max(50).default(20),
+  /** My links search: matches the slug or the target URL, case-insensitively. Empty means no filter. */
+  q: z.string().trim().max(200).optional(),
 });
 
 export const linkStatsInput = z.object({

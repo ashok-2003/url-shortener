@@ -1,6 +1,6 @@
 import "server-only";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, lt } from "drizzle-orm";
+import { and, desc, eq, lt, or, sql } from "drizzle-orm";
 import type { LinkStats, LinkSummary, ListLinksOutput } from "@/features/links/schema";
 import { aggregateClicks } from "@/server/clicks/aggregate";
 import { LINKS } from "@/server/config";
@@ -64,14 +64,33 @@ export async function createLink(
   throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: INTERNAL_MESSAGE });
 }
 
+/** A LIKE pattern matching `term` anywhere, with `%`, `_` and `\` taken literally. */
+export function likePattern(term: string): string {
+  return `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+}
+
 export async function listLinks(
   ctx: Context,
-  input: { cursor?: number | null; limit: number },
+  input: { cursor?: number | null; limit: number; q?: string },
 ): Promise<ListLinksOutput> {
+  const term = input.q?.trim();
+  const pattern = term ? likePattern(term) : null;
   const rows = await ctx.db
     .select()
     .from(links)
-    .where(and(eq(links.ownerId, ctx.ownerId), input.cursor ? lt(links.id, input.cursor) : undefined))
+    .where(
+      and(
+        eq(links.ownerId, ctx.ownerId),
+        input.cursor ? lt(links.id, input.cursor) : undefined,
+        // SQLite LIKE is case-insensitive for ASCII, which is what a search box should be.
+        pattern
+          ? or(
+              sql`${links.slug} LIKE ${pattern} ESCAPE '\\'`,
+              sql`${links.targetUrl} LIKE ${pattern} ESCAPE '\\'`,
+            )
+          : undefined,
+      ),
+    )
     .orderBy(desc(links.id))
     .limit(input.limit + 1);
   const page = rows.slice(0, input.limit);
