@@ -17,12 +17,10 @@ constraint drives most of the design.
 >   - **Analytics:** totals, a 30-day chart, top links, referrers, countries and devices;
 > - a skippable `/sign-in` page and an account menu.
 >
-> **In progress, on other branches:**
-> - the backend: real procedures, KV cache, click queue;
-> - the rate limiter.
+> - the real backend: D1 create, list and stats; the KV → D1 redirect; queued, idempotent click counting; SQL
+>   analytics.
 >
-> **Until those merge,** the tRPC procedures on `main` return deterministic **demo fixtures**. See
-> [Demo data](#demo-data-until-the-backend-lands).
+> **In progress:** the rate limiter (owner) and integration tests on `workerd`.
 
 ## Quick start
 
@@ -90,18 +88,16 @@ Browser ──GET /{slug}─────► redirect: KV → (miss) D1 → 302 �
 The full design, with every decision and its reasoning:
 [`docs/superpowers/specs/2026-11-06-url-shortener-design.md`](docs/superpowers/specs/2026-11-06-url-shortener-design.md).
 
-## Demo data (until the backend lands)
+## Try it
 
-The stub procedures in `src/server/links/fixtures.ts` are stateless and always return the same data:
+1. On **Home**, shorten any `https://` link, then open the short link. You get a `302`.
+2. Refresh **Home**, **My links** or **Analytics**: the click shows up within a few seconds. The detail sheet shows
+   the referrer, country and device.
+3. Shorten an `http://` link: you get "Use an https:// link", checked before anything is sent.
+4. Open an unknown slug (`/zzzzzz9`) for the branded `404`. A link whose expiry has passed shows the `410` page.
 
-| Try                                  | You get                                       |
-| ------------------------------------ | --------------------------------------------- |
-| The list                             | 23 links, `demo023` … `demo001`, 20 per page  |
-| `demo022` / `demo021` / `demo020`    | expiring in 3 h / expired / no clicks         |
-| `/?link=demo023`                     | the detail sheet with 30 days of stats        |
-| Shorten `https://ratelimit.test/x`   | the rate-limit error (wait 42 s)              |
-| Shorten `https://error.test`         | a server error                                |
-| Shorten `http://…`                   | "Use an https:// link" (checked before sending) |
+The redirect's `Server-Timing` header shows whether the lookup hit KV or D1, and how long it took:
+`curl -sI localhost:3005/<slug>`.
 
 ## Project layout
 
@@ -142,11 +138,9 @@ Paid.
 
 **Finish what's in flight**
 
-1. **Merge the backend (workstream C)** and retire the demo fixtures. The fixture triggers (`ratelimit.test`,
-   `error.test`) disappear with them.
 2. **Merge the owner's rate limiter.** The form's countdown is already wired to `retryAfterSeconds`.
-3. **Real analytics.** Replace the `analytics.overview` stub with SQL over `click_events`. At scale, roll the events up
-   into a daily table. The stub's numbers are synthetic and don't add up across views.
+3. **Analytics at scale.** `analytics.overview` runs GROUP BYs over raw `click_events`. Roll them up into a daily
+   table once volume grows.
 4. **Measure the redirect on a real deploy,** using its `Server-Timing` header. Keep the Worker fast path only if it
    beats the Next.js route.
 
