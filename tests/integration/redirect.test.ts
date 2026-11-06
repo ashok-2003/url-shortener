@@ -28,8 +28,7 @@ describe("redirect: paths that are not slugs", () => {
   );
 });
 
-// PENDING(C): resolveRedirect, KV read-through and the click producer
-describe.skip("redirect rules", () => {
+describe("redirect rules", () => {
   describe("basics", () => {
     it("302 to the target, never cached, never 301", async () => {
       const link = await insertLink({ slug: "abc1234" });

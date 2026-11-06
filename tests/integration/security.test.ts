@@ -22,8 +22,7 @@ async function rejection(promise: Promise<unknown>) {
   throw new Error("expected the call to reject");
 }
 
-// PENDING(C): real procedures and resolveRedirect
-describe.skip("security", () => {
+describe("security", () => {
   describe("ownership", () => {
     it("another owner's link looks exactly like a missing one", async () => {
       const link = await insertLink();

@@ -37,18 +37,25 @@ export async function resolveRedirect(args: {
 
   if (!SLUG_PATTERN.test(slug)) return page("not-found", 404);
 
-  let link: CachedLink | null = await readCachedLink(env.LINKS_CACHE, slug);
-  const cacheHit = link !== null;
+  const appEnv = readEnv(env);
+  let link: CachedLink | null = await readCachedLink(appEnv.linksCache, slug);
+  const kvMs = Date.now() - started;
+  let d1Ms = 0;
   if (!link) {
+    const d1Started = Date.now();
     try {
-      const row = await env.DB.prepare("SELECT id, target_url, expires_at FROM links WHERE slug = ?")
+      const row = await appEnv.db.prepare("SELECT id, target_url, expires_at FROM links WHERE slug = ?")
         .bind(slug)
         .first<{ id: number; target_url: string; expires_at: number | null }>();
       if (!row) return page("not-found", 404);
       link = { id: row.id, targetUrl: row.target_url, expiresAt: row.expires_at };
-      waitUntil(fillCache(env.LINKS_CACHE, slug, link, started));
+      d1Ms = Date.now() - d1Started;
+      // An expired link is never cached: the 410 below must come from D1's truth.
+      if (link.expiresAt === null || started < link.expiresAt) {
+        waitUntil(fillCache(appEnv.linksCache, slug, link, started));
+      }
     } catch (error) {
-      log.error("redirect.d1_failed", { slug, error });
+      log.error("d1.read_failed", { slug, error });
       return page("unavailable", 503, { "retry-after": String(REDIRECT.retryAfterSeconds) });
     }
   }
@@ -64,7 +71,7 @@ export async function resolveRedirect(args: {
     headers: {
       location: link.targetUrl,
       "cache-control": NO_STORE,
-      "server-timing": `${cacheHit ? "kv" : "d1"};desc="lookup", total;dur=${Date.now() - started}`,
+      "server-timing": `kv;dur=${kvMs}, d1;dur=${d1Ms}, total;dur=${Date.now() - started}`,
     },
   });
 }
