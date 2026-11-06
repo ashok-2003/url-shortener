@@ -1,6 +1,7 @@
 import "server-only";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { headers } from "next/headers";
+import { readEnv } from "@/server/config";
 import { getDb, type Db } from "@/server/db/client";
 
 export const DEMO_USER_ID = "user_demo";
@@ -26,7 +27,10 @@ export function createContext(opts: {
   };
 }
 
-export function resolveBaseUrl(origin: string, publicBaseUrl?: string): string {
+export function resolveBaseUrl(
+  origin: string,
+  publicBaseUrl?: string | null,
+): string {
   const base =
     typeof publicBaseUrl === "string" && publicBaseUrl !== ""
       ? publicBaseUrl
@@ -37,23 +41,25 @@ export function resolveBaseUrl(origin: string, publicBaseUrl?: string): string {
 /** Context for the HTTP adapter (`/api/trpc`). */
 export function createRequestContext(req: Request): Context {
   const { env } = getCloudflareContext();
+  const app = readEnv(env);
   return createContext({
-    db: getDb(env.DB),
+    db: getDb(app.db),
     env,
-    baseUrl: resolveBaseUrl(new URL(req.url).origin, env.PUBLIC_BASE_URL),
+    baseUrl: resolveBaseUrl(new URL(req.url).origin, app.publicBaseUrl),
   });
 }
 
 /** Context for in-process calls from React Server Components. */
 export async function createRscContext(): Promise<Context> {
   const { env } = getCloudflareContext();
+  const app = readEnv(env);
   const h = await headers();
   const host = h.get("host") ?? "localhost";
   const isLocal = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host);
   const proto = h.get("x-forwarded-proto") ?? (isLocal ? "http" : "https");
   return createContext({
-    db: getDb(env.DB),
+    db: getDb(app.db),
     env,
-    baseUrl: resolveBaseUrl(`${proto}://${host}`, env.PUBLIC_BASE_URL),
+    baseUrl: resolveBaseUrl(`${proto}://${host}`, app.publicBaseUrl),
   });
 }
