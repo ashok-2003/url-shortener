@@ -10,8 +10,8 @@ export default defineConfig({
   use: {
     baseURL: BASE_URL,
     // Phone-sized, touch-first (the phone is the primary target).
-    ...devices["Desktop Chrome"],
     browserName: "chromium",
+    userAgent: devices["Pixel 7"].userAgent,
     viewport: { width: 390, height: 844 },
     hasTouch: true,
     isMobile: true,
@@ -22,9 +22,14 @@ export default defineConfig({
     { name: "rate-limit", testMatch: /rate-limit\.spec\.ts/, dependencies: ["journeys"] },
   ],
   webServer: {
-    // Fresh local D1/KV/Queue state on every run, then one seeded link.
-    command:
-      "rm -rf .wrangler/state && pnpm db:migrate && pnpm wrangler d1 execute url-shortner --local --file tests/e2e/seed.sql && pnpm preview",
+    // Fresh state in a private directory, so a developer's own .wrangler/state is never touched.
+    command: [
+      "rm -rf .wrangler/e2e-state",
+      "pnpm wrangler d1 migrations apply url-shortner --local --persist-to .wrangler/e2e-state",
+      "pnpm wrangler d1 execute url-shortner --local --persist-to .wrangler/e2e-state --file tests/e2e/seed.sql",
+      "pnpm exec opennextjs-cloudflare build",
+      "pnpm exec opennextjs-cloudflare preview --persist-to .wrangler/e2e-state",
+    ].join(" && "),
     url: BASE_URL,
     timeout: 300_000,
     reuseExistingServer: false,
