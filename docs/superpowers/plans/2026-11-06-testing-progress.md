@@ -6,25 +6,31 @@
 
 ## Where things stand
 
-On `test/contract-suite`, `pnpm test` reports **127 passed, 50 skipped**, and `pnpm typecheck` and `pnpm lint` are
-clean. The branch sits directly on `main` `6ad0d0f`, so it fast-forwards into `main`. The harness alone (Task 1) is
-already on `main` (`8d95703`).
-`pnpm exec playwright test --list` lists 5 E2E tests. The skipped tests wait on code that isn't built yet. To see
-what's left, run `grep -rn "PENDING(" tests`.
+**Updated 2026-11-06, after backend round 2 merged.** On `main` (`5c75bba`), `pnpm test` reports **334 passed, 0
+skipped** (34 files), `pnpm lint` and `pnpm typecheck` are clean, and `pnpm test:e2e` passes **5 of 5** (run twice
+locally: 48 s and 34 s, build included). No `PENDING(` marker is left in `tests/`.
+
+C's merge removed the PENDING(C) and PENDING(E) markers and changed nothing else: every assertion in
+`links-contract`, `redirect`, `security` and `rate-limit` is as written here, and the `test/handoff-c` files landed
+byte for byte. The E2E specs were unskipped on `ci/checks` and passed with no selector changes.
+
+**CI:** `.github/workflows/ci.yml` runs on every push (and by hand). One job runs lint, typecheck and Vitest; a second
+runs the Playwright journeys at phone size and keeps traces when one fails. Nothing deploys: the project is
+local-first (spec §3), and a deploy needs the owner's Cloudflare account.
 
 | Task | What                                                                   | State |
 | ---- | ---------------------------------------------------------------------- | ----- |
-| 1    | Workers harness: `@cloudflare/vitest-plugin`, migrations, `tests/support/` helpers | On `main`, and C builds on it |
-| 2    | URL security and expiry boundary unit tests (107 cases against A's schema) | Pass |
-| 3    | Own-host finding, slug and user-agent tests, on `test/handoff-c`       | C reports 24/24 pass on `feat/backend` |
-| 4    | create/list/stats contract tests                                       | 2 live; the rest PENDING(C) |
-| 5    | Redirect rules: 302/404/410, KV fill and TTL, no "not found" caching, click enqueue, Server-Timing, non-ASCII targets | 5 live; the rest PENDING(C) |
-| 6    | Click pipeline (`recordClicks`), on `test/handoff-c`                   | C reports 5/5 pass against its code |
-| 7    | Security: ownership, cursor leak, `ownerId` input ignored, no leaks on 500, no IP, referrer host only | PENDING(C) |
-| 8    | Rate limit: 5 per minute, invalid input doesn't count, bursts, per owner, window reset | PENDING(E) |
-| 9    | Playwright E2E at 390×844 (4 journeys and a rate-limit test), with isolated `.wrangler/e2e-state` | PENDING(B, C, E) |
-| 10   | `pnpm bench`: create and redirect speed report (p50/p95/p99) against the owner's targets | Works; numbers once C lands |
-| 11   | Collect, gate, merge                                                   | Collected and green; the merge into `main` and the final review are next |
+| 1    | Workers harness: `@cloudflare/vitest-plugin`, migrations, `tests/support/` helpers | On `main` |
+| 2    | URL security and expiry boundary unit tests (107 cases against A's schema) | Pass on `main` |
+| 3    | Own-host finding, slug and user-agent tests                            | Pass on `main` |
+| 4    | create/list/stats contract tests                                       | Pass on `main` |
+| 5    | Redirect rules: 302/404/410, KV fill and TTL, no "not found" caching, click enqueue, Server-Timing, non-ASCII targets | Pass on `main` |
+| 6    | Click pipeline (`recordClicks`)                                        | Pass on `main` |
+| 7    | Security: ownership, cursor leak, `ownerId` input ignored, no leaks on 500, no IP, referrer host only | Pass on `main` |
+| 8    | Rate limit: 5 per minute, invalid input doesn't count, bursts, per owner, window reset | Pass on `main` |
+| 9    | Playwright E2E at 390×844 (4 journeys and a rate-limit test), with isolated `.wrangler/e2e-state` | Pass, unskipped on `ci/checks` |
+| 10   | `pnpm bench`: create and redirect speed report (p50/p95/p99) against the owner's targets | Works; not run against the merged backend yet |
+| 11   | Collect, gate, merge                                                   | Merged; CI added on `ci/checks`. The final whole-branch review hasn't run |
 
 **Branches:**
 - `test/handoff-c` holds the tests that need C's modules: `14e9000` (own-host, slug, user-agent) and `e495949`
@@ -33,10 +39,10 @@ what's left, run `grep -rn "PENDING(" tests`.
 
 ## Findings
 
-1. **Trailing dot gets around the own-host check.** `https://sho.rt./x` passed `assertNotOwnHost`. **Fixed by C**
-   (`c/task-0b`) and proven by `own-host.test.ts`. It isn't on `main` until `feat/backend` merges.
-2. **Non-ASCII targets could crash the redirect.** Characters above U+00FF in `Location` make `Headers` throw. C now
-   stores `new URL(url).href`, and the check is in the PENDING(C) block of `redirect.test.ts`.
+1. **Trailing dot gets around the own-host check.** `https://sho.rt./x` passed `assertNotOwnHost`. **Fixed by C**,
+   and `own-host.test.ts` proves it on `main`.
+2. **Non-ASCII targets could crash the redirect.** Characters above U+00FF in `Location` make `Headers` throw. **Fixed
+   by C**: it stores `new URL(url).href`, and `redirect.test.ts` proves it on `main`.
 3. **Note, not a test:** the request's own origin isn't checked when `PUBLIC_BASE_URL` differs from it. It's low
    risk, since it allows chaining two short links but not a loop.
 4. **`@cloudflare/vitest-pool-workers` is deprecated**, renamed to `@cloudflare/vitest-plugin`. The harness uses the
@@ -53,29 +59,15 @@ what's left, run `grep -rn "PENDING(" tests`.
 
 ## Next steps
 
-1. **Merge `test/contract-suite` into `main`.**
-   - It wasn't merged at wrap-up because the main checkout had another session's uncommitted `package.json` edit (a
-     `start` script).
-   - Then run the final whole-branch review (most capable model), which hasn't run yet.
-2. **When C's `feat/backend` merges:**
-   - Remove the PENDING(C) markers in `links-contract`, `redirect` and `security`, then run them.
-   - Report any failure to the owner, and hold it back. Never weaken an assertion.
-   - Confirm that the 3-collisions test's zero-filled `getRandomValues` reaches `generateSlug`.
-3. **When the owner's limiter (E) lands:**
-   - Unskip `rate-limit.test.ts` and `tests/e2e/rate-limit.spec.ts`.
-   - If the store expires on real time, change how the "after the window" test waits.
-4. **When B's UI and C are in:** unskip the E2E journeys and run `pnpm test:e2e`. Fix selectors that drifted, using
-   roles and labels only.
-5. **Run `pnpm bench`** against `pnpm preview` once C emits `Server-Timing`, and hand the numbers to workstream F
-   (README). The client-observed column is the one that shows what the fast path saves.
-6. **Add contract tests for `analytics.overview`** (spec addendum 47aa513). C's stated rules:
-   - 30-day breakdowns;
-   - rolling `last24h` and `last7d`;
-   - `expires_at == now` counts as expired;
-   - `topLinks` ordered by clicks descending, then newest first.
-7. **One exploratory security pass** with `curl` against `pnpm preview` after C lands (design §9). Turn findings into
-   tests.
-8. **Housekeeping:**
-   - Add `test:e2e` and `bench` to the AGENTS.md commands table.
+1. **Merge `ci/checks` into `main` and push it**, so CI runs on `main`. Then watch the first run on GitHub.
+2. **Run the final whole-branch review** of the test suite (most capable model). It hasn't run yet.
+3. **Run `pnpm bench`** against `pnpm preview` (the backend emits `Server-Timing` now), and hand the numbers to
+   workstream F (README). The client-observed column is the one that shows what the fast path saves.
+4. **Confirm that the 3-collisions test's zero-filled `getRandomValues` reaches `generateSlug`.** It passes, but it
+   hasn't been checked that it passes for the right reason.
+5. **`analytics.overview`:** C's `tests/integration/server/stats-rules.test.ts` covers all six stated rules. An
+   independent contract test from D is optional.
+6. **One exploratory security pass** with `curl` against `pnpm preview` (design §9). Turn findings into tests.
+7. **Housekeeping:**
    - Update spec §12 to the new package name.
    - Remove the finished agent worktrees under `.claude/worktrees/agent-*` and `contract-suite`.
