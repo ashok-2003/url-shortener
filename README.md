@@ -25,9 +25,11 @@ constraint drives most of the design.
 
 ## Quick start
 
-You need **Node 22+** and **pnpm 11**. You don't need a Cloudflare account: D1, KV and Queues all run locally.
+You need **Node 22+** and **pnpm 11**. If you don't have pnpm 11, run `corepack enable`, and it picks up the version
+pinned in `package.json`. You don't need a Cloudflare account: D1, KV and Queues all run locally.
 
 ```bash
+git clone <this repo> && cd url-shortner
 pnpm install
 pnpm db:migrate        # create the local D1 database (stored in .wrangler/)
 pnpm dev               # Next.js dev server with local Cloudflare bindings → http://localhost:3000
@@ -61,7 +63,7 @@ app reads through OpenNext.
 | `pnpm db:generate`| Generates a Drizzle migration from `src/server/db/schema.ts`                 |
 | `pnpm db:migrate` | Applies migrations to the **local** D1 database                              |
 | `pnpm cf-typegen` | Regenerates `cloudflare-env.d.ts` from `wrangler.jsonc`                      |
-| `pnpm deploy`     | OpenNext build and deploy (needs a Cloudflare account and real resource IDs) |
+| `pnpm run deploy` | OpenNext build and **real deploy** to the Cloudflare account Wrangler is logged in to |
 
 ## How it works
 
@@ -127,16 +129,40 @@ tests/unit/             Vitest
 - [Navigation and analytics addendum](docs/superpowers/specs/2026-11-06-navigation-and-analytics.md): the three tabs and `analytics.overview`.
 - `AGENTS.md`: the rules for anyone, person or AI, working in this repo.
 
-## Deploying (optional)
+## Deploying to Cloudflare
 
-The project is local-first. To deploy, run the steps below, then `pnpm cf-typegen && pnpm deploy`.
+The code needs no changes to deploy; you only create the resources and paste in their IDs. It fits the **Workers Free
+plan**: the Worker is about 1.5 MB gzipped, under the 3 MB limit.
 
-1. Create the D1 database, the KV namespace and the `clicks` and `clicks-dlq` queues with Wrangler.
-2. Put their IDs into `wrangler.jsonc`.
-3. Run `wrangler d1 migrations apply url-shortner --remote`.
+```bash
+pnpm exec wrangler login
 
-Queues are on the Workers Free plan (10,000 operations a day, or about 3,000 clicks). Higher traffic needs Workers
-Paid.
+# 1. Create the resources. Each command prints an id.
+pnpm exec wrangler d1 create url-shortner          # → database_id
+pnpm exec wrangler kv namespace create LINKS_CACHE  # → id
+pnpm exec wrangler queues create clicks
+pnpm exec wrangler queues create clicks-dlq
+
+# 2. Paste the D1 database_id and the KV id into wrangler.jsonc, replacing the zero placeholders.
+
+# 3. Create the tables in the remote database.
+pnpm exec wrangler d1 migrations apply url-shortner --remote
+
+# 4. Build and deploy to the account you are logged in to.
+pnpm run deploy                                     # → https://url-shortner.<your-subdomain>.workers.dev
+```
+
+**Things to know:**
+
+- **Short links** use the site's own origin (`…workers.dev/abc1234`). For a custom domain, set `PUBLIC_BASE_URL` in
+  `wrangler.jsonc` `vars`.
+- **Countries** in analytics only fill in once deployed. They come from Cloudflare's `request.cf.country`, which
+  local runs don't have.
+- **Free-plan limits:**
+  - Queues allow 10,000 operations a day, about 3,000 clicks.
+  - KV allows 1,000 writes a day. The redirect cache writes once per link, not once per click.
+  - Past those limits you need Workers Paid ($5 a month).
+- **The resource IDs aren't secrets.** It's fine to commit `wrangler.jsonc` with them in.
 
 ## What I'd improve next
 
