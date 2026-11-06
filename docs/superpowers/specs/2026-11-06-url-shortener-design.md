@@ -323,6 +323,9 @@ The owner designs and builds this. This spec fixes only the seam and the behavio
 
 ### Screens (owner: as few as possible)
 
+- **Superseded on 2026-11-06 (owner):** the app now has three tabs, Home, My links and Analytics, plus an
+  `analytics.overview` procedure. See `2026-11-06-navigation-and-analytics.md`, which takes precedence over this list
+  where they differ.
 - **`/`**, the only page: a header, the create form, and the list of my links.
 - **Link details**: a sheet over `/`. It slides up from the bottom below 768px and from the right side at 768px and
   above **(call)**. The open link is in the URL as `?link=<slug>`, so the phone's back button closes it and reloading
