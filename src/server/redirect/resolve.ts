@@ -5,7 +5,7 @@ import { buildClickMessage } from "@/server/clicks/producer";
 import { toClickEvent } from "@/server/clicks/consumer";
 import { recordClicks } from "@/server/clicks/record";
 import type { ClickMessage } from "@/server/clicks/types";
-import { readEnv, REDIRECT } from "@/server/config";
+import { readEnv, REDIRECT, type AppEnv } from "@/server/config";
 import { getDb } from "@/server/db/client";
 import { log } from "@/server/log";
 import { fillCache, readCachedLink, type CachedLink } from "./cache";
@@ -63,7 +63,7 @@ export async function resolveRedirect(args: {
   if (link.expiresAt !== null && started >= link.expiresAt) return page("expired", 410);
 
   if (request.method === "GET") {
-    waitUntil(enqueueClick(env, buildClickMessage(request, cf, link.id, started)));
+    waitUntil(enqueueClick(appEnv, buildClickMessage(request, cf, link.id, started)));
   }
 
   return new Response(null, {
@@ -81,9 +81,8 @@ export async function resolveRedirect(args: {
  * `next dev` runs no queue consumer, so there the click is stored directly (still after the response).
  * A missing binding is a loud ConfigError from readEnv, never a silent inline write.
  */
-async function enqueueClick(env: CloudflareEnv, message: ClickMessage): Promise<void> {
+async function enqueueClick(appEnv: AppEnv, message: ClickMessage): Promise<void> {
   try {
-    const appEnv = readEnv(env);
     if (process.env.NODE_ENV === "development") {
       await recordClicks(getDb(appEnv.db), [toClickEvent(message)]);
     } else {

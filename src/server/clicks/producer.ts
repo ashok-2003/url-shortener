@@ -1,15 +1,6 @@
 import "server-only";
 import { REDIRECT } from "@/server/config";
-
-// Local until the shared type lands in `clicks/types.ts`.
-type ClickMessage = {
-  clickId: string;
-  linkId: number;
-  clickedAt: number;
-  referrerHost: string | null;
-  country: string | null;
-  userAgent: string | null;
-};
+import type { ClickMessage } from "./types";
 
 const COUNTRY_PATTERN = /^[A-Z0-9]{2}$/;
 

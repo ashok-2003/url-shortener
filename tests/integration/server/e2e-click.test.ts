@@ -1,28 +1,9 @@
 import { env } from "cloudflare:test";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { handleClickBatch } from "@/server/clicks/consumer";
 import { capturingQueue, runRedirect } from "../../support/redirect";
 import { trpcHttp } from "../../support/trpc";
-
-function fakeBatch(bodies: unknown[]) {
-  const messages = bodies.map((body, i) => ({
-    id: `m${i}`,
-    timestamp: new Date(),
-    attempts: 1,
-    body,
-    ack: vi.fn(),
-    retry: vi.fn(),
-  }));
-  return {
-    batch: {
-      queue: "clicks",
-      messages,
-      ackAll: vi.fn(),
-      retryAll: vi.fn(),
-    } as unknown as MessageBatch<unknown>,
-    messages,
-  };
-}
+import { fakeBatch } from "./fake-batch";
 
 describe("create -> redirect -> queue -> stats", () => {
   it("counts one click once, even when the batch is redelivered", async () => {
@@ -49,6 +30,7 @@ describe("create -> redirect -> queue -> stats", () => {
     const run = async () => {
       const { batch, messages } = fakeBatch(queue.sent);
       await handleClickBatch(batch, env);
+      expect(messages).toHaveLength(1);
       for (const m of messages) expect(m.retry).not.toHaveBeenCalled();
     };
     await run();
