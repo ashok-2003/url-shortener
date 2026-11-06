@@ -10,6 +10,55 @@
 rounds until the review was clean. Parallel tasks ran in separate worktrees, and only reviewed work was merged into
 `feat/backend`.
 
+## Round 2 (resumed with the owner's go-ahead, 2026-11-06 about 18:10 IST): `feat/backend-2`
+
+The planner built a working backend on `main` (`bee3017`) for the demo. Round 2 hardened it, proved it against the test
+workstream's acceptance suite, and built the rate limiter, which the owner handed over.
+
+- **Branch:** `feat/backend-2` = `main` `ff01ccf` + `origin/test/contract-suite` `48db12c` + four reviewed task merges.
+- **Gates:** **326/326 tests, 0 skipped, no `PENDING` markers left**; `pnpm typecheck`, `lint` and `build` all 0.
+
+| Merge | What | Review |
+| ----- | ---- | ------ |
+| `4e46dff` links | D's links-contract suite passes 23/23 (5 had been failing). The target is stored as `new URL(url).href`, with the 2048 check and an own-host re-check on the normalized value. `links.stats` breakdowns are all-time. Ordering puts `null` last only among ties. Slug exhaustion returns the generic message | Clean |
+| `bbb5e33` clicks | `recordClicks(db, events)` on the interface agreed with D, with `EXISTS`-guarded exactly-once counting. Consumer: `readEnv`, a malformed message → `retry()` → DLQ, failures logged and rethrown. `wrangler.jsonc`: `max_concurrency` 2, `max_retries` 3, a `server-only` alias, and `import "server-only"` restored in `clicks/*`. The silent `\|\| !env.CLICKS` fallback is removed (fail loud) | Clean |
+| `3615494` rate limiter | An exact D1 sliding window (decision **0010**). One atomic `INSERT…SELECT…WHERE count < 5` in one batch, with the oldest slot read inside the same batch, `retryAfterSeconds` clamped to 1..60, pruning at 2× the window, and the slot released when the create fails. D's rate-limit tests pass 6/6, plus 13 more tests | Clean after 2 fix rounds (the clamp was Important) |
+| `c4604c7` redirect | D's redirect and security suites pass. Server-Timing `kv`/`d1`/`total`, no KV fill for expired links, the `d1.read_failed` event, a missing binding → `ConfigError`. Resilience proofs (503 + `Retry-After` 5, KV get/put failures, send failure, all logged) and an e2e create → redirect → queue → count test. One `ClickMessage` type | Clean after 1 fix round |
+
+**Combined smoke test** (merged branch, full OpenNext build, `wrangler dev` on port 8791, local D1 migrated):
+- `/`, `/links` and `/analytics` return 200;
+- 10 parallel creates gave **5 × 200 and 5 × 429**, each with `retryAfterSeconds` 60;
+- the redirect returned 302, and the click counted (`all: 1`, referrer `t.co`) within 1 s.
+
+**Needed at merge:** run `pnpm db:migrate` on every existing local D1, including the one behind port 3005, so it gets
+the new `rate_limit_events` table (`drizzle/0001_*`).
+
+**Rulings in round 2** (each with its cost if wrong):
+- **S1:** the limiter follows the owner's own design (a sliding window in D1, behind a `RateLimiter` interface, with a
+  release on failure), not "count rows in `links`". *Cost:* one table and one migration.
+- **S2:** `recordClicks` moved back to the agreed `(db, events)` interface. *Cost:* edits to the planner's code.
+- **S3:** the silent inline fallback when `CLICKS` is missing was removed. *Cost:* none.
+- **S4:** the Wrangler alias keeps `import "server-only"` in every server file. *Cost:* none; the full bundle is
+  verified.
+- **S5:** the limiter's cheap review minors (read inside the batch, 2× prune, boundary tests, 0010 wording) went in
+  with the Important clamp. *Cost:* one longer fix round.
+- **S6:** the duplicate `ClickMessage` type was must-fix under the one-source-of-truth rule. *Cost:* a small fix round.
+
+**Deferred minors from round 2, for the next review to triage:**
+- The tRPC `onError` logs expected 4xx (`TOO_MANY_REQUESTS`, `BAD_REQUEST`) at `error` level, which is noise in the
+  logs. Log them at `warn`. **Do this first.**
+- `record.ts` batch tuple cast; `resolve.ts` imports `toClickEvent` from the consumer (move it next to the types).
+- Tests assert the log JSON through `console.*` spies (coupled to the format). A bare `.rejects.toThrow()` in the
+  `record_failed` test.
+- The 2048 message is duplicated between `service.ts` and `schema.ts`. Null-last ordering is pinned only for overview
+  referrers.
+- The `release_failed` test's Proxy throws synchronously.
+- No "nothing logged" assertion in the "D1 throws, KV hit" case.
+- The redirect's `readEnv` also validates `CLICKS` and `PUBLIC_BASE_URL` (loud by design, but a wider blast radius).
+
+**Still open:** the Worker fast path and its measurement (Task 6), and the round-1 deferred minors in §5 (especially
+making `log.ts` safe against stringify throws).
+
 ## 1. Done, reviewed and on `feat/backend`
 
 The gates on `feat/backend` (`bf9ba1f`) all pass: **184/184 tests** (`unit` and `workers` projects), `pnpm typecheck` 0,
