@@ -83,6 +83,8 @@ The owner set these (decision 0009).
   Import a value; never retype it.
 - **Log through `src/server/log.ts`** (`log.info`, `log.warn`, `log.error`). Server code never calls `console.*`
   directly, and ESLint enforces it. Never log IP addresses.
+- **Seeing the logs:** warn and error lines go to stderr. `opennextjs-cloudflare preview` (`pnpm preview`) hides them, so
+  use `pnpm start` (plain `wrangler dev`) to see them, and capture with `2>&1`.
 - **No empty `catch`.** Where the visitor must still be served (a cache fill, a click send), catch, log with context,
   and carry on. Everywhere else, let the error propagate.
 
@@ -142,7 +144,8 @@ Don't settle these on your own. They are waiting on the owner.
 | ------------------ | ---------------------------------------------------------------------------- |
 | `pnpm install`     | Install. Use pnpm, not npm or yarn                                           |
 | `pnpm dev`         | Next.js dev server with local bindings. No queue consumer runs here          |
-| `pnpm preview`     | OpenNext build, then the real Workers runtime locally on port 8787, with D1, KV and Queues |
+| `pnpm preview`     | OpenNext build, then the real Workers runtime locally on port 8787, with D1, KV and Queues. Hides warn and error logs |
+| `pnpm start`       | Plain `wrangler dev` on port 3005, serving the prebuilt `.open-next` (run an OpenNext build first). Shows every log level. The owner's demo server, so don't restart it without asking |
 | `pnpm build`       | Next.js production build                                                     |
 | `pnpm test`        | Vitest (`vitest.config.mts`)                                                 |
 | `pnpm typecheck`   | `next typegen`, then `tsc --noEmit`                                          |
