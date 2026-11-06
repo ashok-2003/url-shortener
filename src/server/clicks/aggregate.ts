@@ -13,13 +13,15 @@ export type ClickAggregates = {
 };
 
 /**
- * Click aggregates over the last 30 UTC days, for all of one owner's links or one link of theirs.
- * Raw SQL GROUP BYs over click_events, sent as a single D1 batch: one round trip.
+ * Click aggregates for all of one owner's links or one link of theirs. `daily` always covers the last 30 UTC
+ * days; referrers, countries and devices cover the same window unless `breakdown` is "all-time" (spec section 8).
+ * Lists order by clicks desc, then null last, then the key ascending. Raw SQL GROUP BYs over click_events, sent as a single D1 batch: one round trip.
  */
 export async function aggregateClicks(
   d1: D1Database,
   scope: { ownerId: string; linkId?: number },
   now: number,
+  breakdown: "window" | "all-time" = "window",
 ): Promise<ClickAggregates> {
   const todayUtc = Math.floor(now / DAY) * DAY;
   const since = todayUtc - (LINKS.statsDays - 1) * DAY;
@@ -30,12 +32,14 @@ export async function aggregateClicks(
       .prepare(sql.replace("{from}", from))
       .bind(...(scope.linkId === undefined ? [scope.ownerId, start] : [scope.ownerId, scope.linkId, start]));
   const top = LINKS.statsTopN;
+  const breakdownSince = breakdown === "all-time" ? 0 : since;
+  const order = (col: string) => `ORDER BY clicks DESC, ${col} IS NULL ASC, ${col} ASC`;
 
   const [daily, referrers, countries, devices, day, week] = await d1.batch([
     stmt(`SELECT strftime('%Y-%m-%d', e.clicked_at / 1000, 'unixepoch') AS date, count(*) AS clicks {from} GROUP BY date`, since),
-    stmt(`SELECT e.referrer AS host, count(*) AS clicks {from} GROUP BY e.referrer ORDER BY clicks DESC LIMIT ${top}`, since),
-    stmt(`SELECT e.country AS country, count(*) AS clicks {from} GROUP BY e.country ORDER BY clicks DESC LIMIT ${top}`, since),
-    stmt(`SELECT e.device_type AS deviceType, count(*) AS clicks {from} GROUP BY e.device_type ORDER BY clicks DESC`, since),
+    stmt(`SELECT e.referrer AS host, count(*) AS clicks {from} GROUP BY e.referrer ${order("e.referrer")} LIMIT ${top}`, breakdownSince),
+    stmt(`SELECT e.country AS country, count(*) AS clicks {from} GROUP BY e.country ${order("e.country")} LIMIT ${top}`, breakdownSince),
+    stmt(`SELECT e.device_type AS deviceType, count(*) AS clicks {from} GROUP BY e.device_type ${order("e.device_type")}`, breakdownSince),
     stmt(`SELECT count(*) AS n {from}`, now - DAY),
     stmt(`SELECT count(*) AS n {from}`, now - 7 * DAY),
   ]);

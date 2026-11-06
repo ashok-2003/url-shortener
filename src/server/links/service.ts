@@ -5,7 +5,12 @@ import type { LinkStats, LinkSummary, ListLinksOutput } from "@/features/links/s
 import { aggregateClicks } from "@/server/clicks/aggregate";
 import { LINKS } from "@/server/config";
 import { links, type LinkRow } from "@/server/db/schema";
+import { INTERNAL_MESSAGE } from "@/server/trpc/error-format";
+import { InputFieldError } from "@/server/trpc/errors";
+import { log } from "@/server/log";
+import { MAX_URL_LENGTH } from "@/features/links/schema";
 import type { Context } from "@/server/trpc/context";
+import { assertNotOwnHost } from "./guards";
 import { isExpired, resolveExpiresAt } from "./expiry";
 import { generateSlug } from "./slug";
 import type { ExpiryInput } from "@/features/links/schema";
@@ -30,6 +35,12 @@ export async function createLink(
   ctx: Context,
   input: { url: string; expiry: ExpiryInput },
 ): Promise<LinkSummary> {
+  const targetUrl = new URL(input.url).href;
+  if (targetUrl.length > MAX_URL_LENGTH) {
+    const message = `Links can be at most ${MAX_URL_LENGTH} characters`;
+    throw new TRPCError({ code: "BAD_REQUEST", message, cause: new InputFieldError("url", message) });
+  }
+  assertNotOwnHost(targetUrl, ctx.baseUrl);
   const now = Date.now();
   const expiresAt = resolveExpiresAt(input.expiry, now);
   for (let attempt = 1; attempt <= LINKS.maxSlugAttempts; attempt++) {
@@ -38,7 +49,7 @@ export async function createLink(
         .insert(links)
         .values({
           slug: generateSlug(),
-          targetUrl: input.url,
+          targetUrl,
           ownerId: ctx.ownerId,
           createdAt: new Date(now),
           expiresAt: expiresAt === null ? null : new Date(expiresAt),
@@ -49,7 +60,8 @@ export async function createLink(
       if (!isSlugCollision(error)) throw error;
     }
   }
-  throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Couldn't pick a free short link." });
+  log.error("links.create.slug_exhausted", { attempts: LINKS.maxSlugAttempts });
+  throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: INTERNAL_MESSAGE });
 }
 
 export async function listLinks(
@@ -80,7 +92,7 @@ export async function linkStats(ctx: Context, slug: string): Promise<LinkStats> 
   if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "This link doesn't exist." });
 
   const now = Date.now();
-  const agg = await aggregateClicks(ctx.env.DB, { ownerId: ctx.ownerId, linkId: row.id }, now);
+  const agg = await aggregateClicks(ctx.env.DB, { ownerId: ctx.ownerId, linkId: row.id }, now, "all-time");
   return {
     link: toSummary(row, ctx.baseUrl, now),
     lastClickAt: row.lastClickAt ? row.lastClickAt.toISOString() : null,
