@@ -1,26 +1,133 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* Light only (DESIGN.md). Tokens below are the single source of colour truth. */
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-hairline: var(--hairline);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-action-hover: var(--action-hover);
+  --color-status-red-dot: var(--status-red-dot);
+  --color-status-red-bg: var(--status-red-bg);
+  --color-status-red-ink: var(--status-red-ink);
+  --color-status-amber-dot: var(--status-amber-dot);
+  --color-status-amber-bg: var(--status-amber-bg);
+  --color-status-amber-ink: var(--status-amber-ink);
+  --color-status-neutral-dot: var(--status-neutral-dot);
+  --color-status-neutral-bg: var(--status-neutral-bg);
+  --color-status-neutral-ink: var(--status-neutral-ink);
+
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --font-display: var(--font-garamond), Georgia, serif;
+  --font-heading: var(--font-sans);
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: var(--radius);
+  --radius-xl: 14px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  /* DESIGN.md palette */
+  --canvas: #fffdf9;
+  --surface: #f5f4f0;
+  --hairline: #e6e3dc;
+  --input-border: #8a8a82;
+  --ink: #1a1a1a;
+  --ink-muted: #6b6b6b;
+  --action: #2563eb;
+  --action-hover: #1d4ed8;
+  --action-tint: #eef2ff;
+  --on-action: #ffffff;
+  --status-red-dot: #d92d20;
+  --status-red-bg: #fdecea;
+  --status-red-ink: #9b1c1c;
+  --status-amber-dot: #c2680a;
+  --status-amber-bg: #fff3d6;
+  --status-amber-ink: #7a4100;
+  --status-neutral-dot: #6b6b6b;
+  --status-neutral-bg: #ecebe6;
+  --status-neutral-ink: #4a4a4a;
+  --scrim: rgb(26 26 26 / 0.4);
+  --shadow-overlay: 0 8px 24px rgb(26 26 26 / 0.1), 0 1px 2px rgb(26 26 26 / 0.06);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* shadcn variables */
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --card: var(--canvas);
+  --card-foreground: var(--ink);
+  --popover: var(--canvas);
+  --popover-foreground: var(--ink);
+  --primary: var(--action);
+  --primary-foreground: var(--on-action);
+  --secondary: var(--surface);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface);
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--action-tint);
+  --accent-foreground: var(--action-hover);
+  --destructive: var(--status-red-ink);
+  --border: var(--hairline);
+  --input: var(--input-border);
+  --ring: var(--action);
+  --radius: 0.625rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  html {
+    @apply font-sans;
+  }
+  body {
+    background: var(--canvas);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 22px;
+  }
+  ::selection {
+    background: var(--action-tint);
+    color: var(--action-hover);
+  }
+  input {
+    caret-color: var(--action);
+  }
+  :focus-visible {
+    outline: 2px solid var(--action);
+    outline-offset: 2px;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
 }
