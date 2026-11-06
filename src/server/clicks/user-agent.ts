@@ -1,4 +1,4 @@
-// No "server-only" guard: worker.ts's queue consumer imports this outside the Next.js react-server graph.
+import "server-only";
 import type { DeviceType } from "./types";
 
 const BOT =

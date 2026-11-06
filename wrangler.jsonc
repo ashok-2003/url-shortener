@@ -2,6 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "url-shortner",
   "main": "worker.ts",
+  "alias": { "server-only": "./node_modules/server-only/empty.js" },
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
@@ -12,7 +13,7 @@
   "kv_namespaces": [{ "binding": "LINKS_CACHE", "id": "00000000000000000000000000000000" }],
   "queues": {
     "producers": [{ "binding": "CLICKS", "queue": "clicks" }],
-    "consumers": [{ "queue": "clicks", "max_batch_size": 100, "max_batch_timeout": 5, "dead_letter_queue": "clicks-dlq" }]
+    "consumers": [{ "queue": "clicks", "max_batch_size": 100, "max_batch_timeout": 5, "max_concurrency": 2, "max_retries": 3, "dead_letter_queue": "clicks-dlq" }]
   },
   "vars": { "PUBLIC_BASE_URL": "" }
 }

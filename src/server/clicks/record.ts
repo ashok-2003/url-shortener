@@ -1,42 +1,54 @@
-// No "server-only" guard: worker.ts's queue consumer imports this outside the Next.js react-server graph.
-import type { ClickMessage } from "./types";
-import { parseUserAgent } from "./user-agent";
+import "server-only";
+import { and, eq, sql } from "drizzle-orm";
+import type { Db } from "@/server/db/client";
+import { clickEvents, links } from "@/server/db/schema";
+import type { ClickEvent } from "./types";
+
+export type { ClickEvent } from "./types";
 
 /**
- * Stores a batch of clicks idempotently (spec section 7), in ONE D1 batch, which D1 runs as a
- * single transaction:
- *  1. insert each event keyed by its clickId, ignoring ids already stored (queue redelivery);
- *  2. add to links.clicks only the rows THIS run inserted, found by this run's batchId.
- * A redelivered click keeps its old batchId, so it is counted exactly once.
+ * Stores a batch of clicks and bumps each link's counters in one D1 batch
+ * (one transaction). Rows are tagged with a fresh `batchId`; the counter
+ * update counts only rows carrying that id, so events already stored by an
+ * earlier delivery (conflict, do nothing) are never counted twice.
  */
-export async function recordClicks(db: D1Database, messages: ClickMessage[]): Promise<void> {
-  if (messages.length === 0) return;
+export async function recordClicks(db: Db, events: ClickEvent[]): Promise<void> {
+  if (events.length === 0) return;
   const batchId = crypto.randomUUID();
 
-  const inserts = messages.map((m) => {
-    const ua = parseUserAgent(m.userAgent);
-    return db
-      .prepare(
-        `INSERT INTO click_events (id, link_id, clicked_at, referrer, country, device_type, browser, os, batch_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING`,
-      )
-      .bind(m.clickId, m.linkId, m.clickedAt, m.referrerHost, m.country, ua.deviceType, ua.browser, ua.os, batchId);
-  });
-
-  const lastClickByLink = new Map<number, number>();
-  for (const m of messages) {
-    lastClickByLink.set(m.linkId, Math.max(lastClickByLink.get(m.linkId) ?? 0, m.clickedAt));
-  }
-  const updates = [...lastClickByLink].map(([linkId, lastClickAt]) =>
+  const inserts = events.map((e) =>
     db
-      .prepare(
-        `UPDATE links
-            SET clicks = clicks + (SELECT count(*) FROM click_events WHERE batch_id = ? AND link_id = ?),
-                last_click_at = max(coalesce(last_click_at, 0), ?)
-          WHERE id = ?`,
-      )
-      .bind(batchId, linkId, lastClickAt, linkId),
+      .insert(clickEvents)
+      .values({
+        id: e.id,
+        linkId: e.linkId,
+        clickedAt: new Date(e.clickedAt),
+        referrer: e.referrer,
+        country: e.country,
+        deviceType: e.deviceType,
+        browser: e.browser,
+        os: e.os,
+        batchId,
+      })
+      .onConflictDoNothing({ target: clickEvents.id }),
   );
 
-  await db.batch([...inserts, ...updates]);
+  const linkIds = [...new Set(events.map((e) => e.linkId))];
+  const updates = linkIds.map((linkId) => {
+    const mine = and(eq(clickEvents.batchId, batchId), eq(clickEvents.linkId, linkId));
+    return db
+      .update(links)
+      .set({
+        clicks: sql`${links.clicks} + (select count(*) from ${clickEvents} where ${mine})`,
+        lastClickAt: sql`max(coalesce(${links.lastClickAt}, 0), (select max(${clickEvents.clickedAt}) from ${clickEvents} where ${mine}))`,
+      })
+      .where(
+        and(
+          eq(links.id, linkId),
+          sql`exists (select 1 from ${clickEvents} where ${mine})`,
+        ),
+      );
+  });
+
+  await db.batch([...inserts, ...updates] as [(typeof inserts)[number], ...(typeof inserts)[number][]]);
 }

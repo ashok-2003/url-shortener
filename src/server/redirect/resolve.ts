@@ -2,9 +2,11 @@ import "server-only";
 import { SLUG_PATTERN } from "@/features/links/schema";
 import { renderStatusPage, type StatusPageKind } from "@/features/status-pages/render";
 import { buildClickMessage } from "@/server/clicks/producer";
+import { toClickEvent } from "@/server/clicks/consumer";
 import { recordClicks } from "@/server/clicks/record";
 import type { ClickMessage } from "@/server/clicks/types";
-import { REDIRECT } from "@/server/config";
+import { readEnv, REDIRECT } from "@/server/config";
+import { getDb } from "@/server/db/client";
 import { log } from "@/server/log";
 import { fillCache, readCachedLink, type CachedLink } from "./cache";
 
@@ -70,15 +72,17 @@ export async function resolveRedirect(args: {
 /**
  * Production: put the click on the queue; worker.ts's consumer stores it in batches.
  * `next dev` runs no queue consumer, so there the click is stored directly (still after the response).
+ * A missing binding is a loud ConfigError from readEnv, never a silent inline write.
  */
 async function enqueueClick(env: CloudflareEnv, message: ClickMessage): Promise<void> {
   try {
-    if (process.env.NODE_ENV === "development" || !env.CLICKS) {
-      await recordClicks(env.DB, [message]);
+    const appEnv = readEnv(env);
+    if (process.env.NODE_ENV === "development") {
+      await recordClicks(getDb(appEnv.db), [toClickEvent(message)]);
     } else {
-      await env.CLICKS.send(message);
+      await appEnv.clicks.send(message);
     }
   } catch (error) {
-    log.error("click.enqueue_failed", { linkId: message.linkId, error });
+    log.error("click.send_failed", { clickId: message.clickId, linkId: message.linkId, error });
   }
 }
