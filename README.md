@@ -53,7 +53,7 @@ app reads through OpenNext.
 | ----------------- | ---------------------------------------------------------------------------- |
 | `pnpm dev`        | Next.js dev server, with D1, KV and Queue bindings through OpenNext          |
 | `pnpm preview`    | OpenNext build, then `wrangler dev`: the actual Workers runtime              |
-| `pnpm start`      | Serves the existing OpenNext build on the Workers runtime at port 3005       |
+| `pnpm start`      | `wrangler dev` on the existing OpenNext build (port 3005), with full logs    |
 | `pnpm build`      | Next.js production build                                                     |
 | `pnpm test`       | Vitest unit tests                                                            |
 | `pnpm typecheck`  | Generates Next.js route types, then runs `tsc --noEmit`                      |
