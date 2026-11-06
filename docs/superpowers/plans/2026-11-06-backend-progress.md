@@ -49,7 +49,7 @@ stopped.
 | 5b | The real `resolveRedirect`: KV → D1 → 302/404/410/**503**, `Server-Timing`, `sendClick` (dev inline via `recordClicks`), resilience tests | 4b merged. Merge `main` first: B's `"unavailable"` kind is on `main` at `219ce3f` |
 | 6  | `worker.ts` fast path, measured with `pnpm bench`. Keep it only if warm p50 improves by at least 10% or 2 ms. Record the numbers in `scaling.md` and decision 0007 | 5b |
 | 7  | Real `analytics.overview` (addendum §4); delete both fixtures files; retire B's stub tests | 3 merged |
-| —  | Un-skip D's `PENDING(C)` contract tests once their suite is on `main` | D's merge |
+| —  | Un-skip D's `PENDING(C)` contract tests: `links-contract`, `redirect` and `security`. Remove a marker, make it green, and never weaken an assertion. Take doubts to the owner | Available now on `origin/test/contract-suite` (`48db12c`, on top of `main` `6ad0d0f`). It isn't on `main` yet because of an uncommitted `start` script edit in the main checkout. Merge that branch into `feat/backend` directly. D's own log: `docs/superpowers/plans/2026-11-06-testing-progress.md` on that branch |
 | —  | Final whole-branch review on the most capable model, triaging the deferred minors in §5. Then merge `feat/backend` into `main`, or open a PR | Everything above |
 
 **Checks waiting on D's contract suite:**
@@ -120,7 +120,9 @@ Calls in the plan the owner can still overturn:
 
 ```bash
 cd .claude/worktrees/backend                 # feat/backend
-git merge main                               # picks up B's "unavailable" kind and D's contract suite
+git merge main                               # picks up B's "unavailable" kind
+git fetch origin && git merge origin/test/contract-suite   # D's PENDING(C) acceptance tests, if not yet on main
+# D's click-pipeline test lives on origin/test/handoff-c (e495949); cherry-pick it with Task 4b
 # finish section 2: review c/task-23 and c/task-4b, then merge them
 # then run section 3 in order: 5b → 6, and 7 (7 can run in parallel with 5b)
 ```
